@@ -83,6 +83,15 @@ class NigerianAccountBot:
         except:
             return False
 
+    def wait_for_page_ready(self):
+        """Wait for page to be fully loaded"""
+        try:
+            wait = WebDriverWait(self.driver, 10)
+            wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
+            return True
+        except:
+            return False
+
     def fill_form_once(self):
         try:
             wait = WebDriverWait(self.driver, 10)
@@ -116,13 +125,17 @@ class NigerianAccountBot:
     def update_invitation_code(self, code):
         try:
             formatted_code = self.format_code(code)
-            code_field = self.driver.find_element(By.XPATH, self.selectors['invitation_code'])
+            
+            # Wait for the code field to be present
+            wait = WebDriverWait(self.driver, 5)
+            code_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['invitation_code'])))
+            
             self.clear_field(code_field)
             code_field.send_keys(formatted_code)
             print(f"   ✅ Code: {formatted_code}")
             return True
         except Exception as e:
-            print(f"   ❌ Failed: {e}")
+            print(f"   ❌ Failed to update code: {e}")
             return False
 
     def click_register_button(self):
@@ -156,12 +169,9 @@ class NigerianAccountBot:
             return False
 
     def check_success(self):
-        """Check if account was created successfully"""
         try:
             page_source = self.driver.page_source.lower()
             
-            # --- CHECK FOR SUCCESS ---
-            # The "Important Notice" popup = SUCCESS!
             if "important notice" in page_source:
                 self.last_result = "✅ SUCCESS! Important Notice found"
                 self.take_screenshot("success_important_notice")
@@ -172,12 +182,10 @@ class NigerianAccountBot:
                 self.take_screenshot("success_free_upgrade")
                 return True
             
-            # --- CHECK FOR FAILURE ---
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
                 self.last_result = "❌ Upgrade message - code failed"
                 return False
             
-            # Other success indicators
             success_words = [
                 "cooperative wealth zone", "deposit principal", "invite newcomers",
                 "wealth center", "wish book", "surprise code", "benefit savings",
@@ -198,7 +206,6 @@ class NigerianAccountBot:
             return False
 
     def logout(self):
-        """Logout by going to logout URL"""
         try:
             print(f"   🔄 Logging out...")
             self.driver.get("https://nnnrc.com/#/logout")
@@ -210,10 +217,10 @@ class NigerianAccountBot:
             return False
 
     def go_to_register_page(self):
-        """Navigate back to register page"""
         try:
             self.driver.get("https://nnnrc.com/#/register")
-            time.sleep(3)
+            self.wait_for_page_ready()
+            time.sleep(2)
             print("   ✅ Back to register page")
             return True
         except Exception as e:
@@ -222,7 +229,7 @@ class NigerianAccountBot:
 
     def attempt_creation(self, code):
         try:
-            # Update invitation code only
+            # Update invitation code
             if not self.update_invitation_code(code):
                 return False, None
             
@@ -230,15 +237,15 @@ class NigerianAccountBot:
             if not self.click_register_button():
                 return False, None
             
-            # Wait for response
+            # WAIT FOR PAGE TO RELOAD/LOAD
             time.sleep(3)
+            self.wait_for_page_ready()
             
             # Take screenshot of result
             self.take_screenshot(f"result_{code}")
             
             # Check if success
             if self.check_success():
-                # SAVE THE ACCOUNT!
                 account_info = {
                     'phone': self.current_phone,
                     'password': self.current_password,
@@ -250,10 +257,14 @@ class NigerianAccountBot:
                 self.last_result = f"✅ SUCCESS! Code {self.format_code(code)} worked!"
                 return True, account_info
             
+            # If failed, wait for page to fully reload before continuing
+            time.sleep(1)
             return False, None
             
         except Exception as e:
             print(f"   ⚠️ Error in attempt: {e}")
+            # Wait before retrying
+            time.sleep(2)
             return False, None
 
     def create_one_account(self):
@@ -261,7 +272,6 @@ class NigerianAccountBot:
         print(f"🆕 Account #{self.account_counter + 1}")
         print(f"Starting code: {self.format_code(self.current_code)}")
 
-        # Fill form with phone + password (ONCE per account)
         if not self.fill_form_once():
             print("❌ Could not fill form")
             return False
@@ -282,13 +292,9 @@ class NigerianAccountBot:
                 print(f"   🔑 Password: {account['password']}")
                 print(f"   🎯 Invitation Code: {account['invitation_code']}")
                 
-                # Logout
                 self.logout()
-                
-                # Go back to register page
                 self.go_to_register_page()
                 
-                # Move to next code
                 self.current_code = code + 1
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
@@ -300,8 +306,7 @@ class NigerianAccountBot:
             self.current_code = code + 1
             attempts += 1
             
-            # Small delay between attempts
-            time.sleep(0.3)
+            time.sleep(0.5)
 
         print(f"❌ Could not find working code after {max_tries} attempts")
         return False
@@ -313,9 +318,9 @@ class NigerianAccountBot:
         print(f"Target: {num_accounts} accounts")
         print("="*60)
 
-        # Load the register page
         try:
             self.driver.get(url)
+            self.wait_for_page_ready()
             print("✅ Website loaded")
             self.take_screenshot("page_loaded")
             time.sleep(3)
@@ -323,24 +328,20 @@ class NigerianAccountBot:
             print(f"❌ Failed to load: {e}")
             return
 
-        # Create accounts
         for i in range(num_accounts):
             print(f"\n🎯 Creating Account #{i + 1} of {num_accounts}")
             success = self.create_one_account()
 
             if not success:
                 print(f"⚠️ Failed to create account #{i + 1}")
-                # Try to recover
                 self.go_to_register_page()
                 self.take_screenshot("recovery")
 
-            # Delay between accounts
             if i < num_accounts - 1:
                 delay = random.uniform(3, 6)
                 print(f"⏳ Waiting {delay:.1f}s before next account...")
                 time.sleep(delay)
 
-        # Final summary
         print("\n" + "="*60)
         print("📊 FINAL SUMMARY")
         print(f"Total accounts created: {len(self.created_accounts)}")
@@ -349,12 +350,10 @@ class NigerianAccountBot:
             print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
         
-        # Final screenshot
         self.take_screenshot("final")
         self.driver.quit()
 
     def save_account(self, account):
-        """Save successful account to CSV"""
         file_exists = os.path.isfile('accounts.csv')
         with open('accounts.csv', 'a', newline='') as f:
             writer = csv.writer(f)
@@ -374,7 +373,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 100  # Change this to how many accounts you want
+NUM_ACCOUNTS = 5
 
-bot = NigerianAccountBot(start_code=41443)
+bot = NigerianAccountBot(start_code=50000)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
