@@ -3,7 +3,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 import time
 import random
@@ -20,30 +19,37 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # Chrome options for headless mode
-        options = Options()
-        options.add_argument("--headless=new")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--remote-debugging-port=9222")
+        # BrowserStack Capabilities
+        capabilities = {
+            'bstack:options': {
+                'userName': 'clintonuzoukwu_DxtVIs',
+                'accessKey': 'fp7Xx2DDjqxjUbpktpyN',
+                'browserName': 'Chrome',
+                'browserVersion': 'latest',
+                'platformName': 'Windows 11',
+                'buildName': 'nnnrc-account-bot',
+                'sessionName': 'Account Creation Test',
+                'local': 'true',
+                'debug': 'true',
+                'networkLogs': 'true',
+                'consoleLogs': 'info',
+                'video': 'true'
+            }
+        }
 
-        print("🔄 Starting Chrome...")
+        print("🔗 Connecting to BrowserStack cloud...")
+        print("📱 Watch live on your iPhone:")
+        print("   https://automate.browserstack.com/dashboard")
+        
         try:
-            service = Service('/usr/lib/chromium-browser/chromedriver')
-            self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started!")
+            self.driver = webdriver.Remote(
+                command_executor='https://hub.browserstack.com/wd/hub',
+                desired_capabilities=capabilities
+            )
+            print("✅ Connected to BrowserStack successfully!")
         except Exception as e:
-            print(f"❌ Failed: {e}")
-            try:
-                from webdriver_manager.chrome import ChromeDriverManager
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=options)
-                print("✅ Chrome started with fallback!")
-            except Exception as e2:
-                print(f"❌ Still failed: {e2}")
-                sys.exit(1)
+            print(f"❌ Failed to connect: {e}")
+            sys.exit(1)
 
         self.selectors = {
             'phone': "//input[@placeholder='Please enter your phone number']",
@@ -228,7 +234,7 @@ class NigerianAccountBot:
             return False
 
         attempts = 0
-        max_tries = 30
+        max_tries = 10
 
         while attempts < max_tries:
             code = self.current_code
@@ -263,11 +269,14 @@ class NigerianAccountBot:
         print(f"❌ Could not find working code")
         return False
 
-    def run(self, url, num_accounts=3):
+    def run(self, url, num_accounts=1):
         print("="*60)
         print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT")
         print(f"Starting code: {self.format_code(self.current_code)}")
         print(f"Target: {num_accounts} accounts")
+        print("="*60)
+        print("\n📱 Watch live on your iPhone:")
+        print("   https://automate.browserstack.com/dashboard")
         print("="*60)
 
         try:
@@ -319,7 +328,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 3
+NUM_ACCOUNTS = 1
 
 bot = NigerianAccountBot(start_code=41140)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
