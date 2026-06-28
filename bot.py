@@ -3,12 +3,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 import time
 import random
 import csv
 import os
 import sys
+import base64
 
 class NigerianAccountBot:
     def __init__(self, start_code=41140):
@@ -18,41 +20,36 @@ class NigerianAccountBot:
         self.nigerian_prefixes = ['080', '081', '090', '091', '070', '071']
         self.current_phone = None
         self.current_password = None
-
-        # BrowserStack Capabilities - HARDCODED
-        capabilities = {
-            'browserName': 'Chrome',
-            'browserVersion': 'latest',
-            'platformName': 'Windows 11',
-            'bstack:options': {
-                'userName': 'clintonuzoukwu_DxtVIs',
-                'accessKey': 'fp7Xx2DDjqxjUbpktpyN',
-                'buildName': 'nnnrc-account-bot',
-                'sessionName': 'Account Creation Test',
-                'debug': 'true',
-                'networkLogs': 'true',
-                'consoleLogs': 'info',
-                'video': 'true'
-            }
-        }
-
-        print("🔗 Connecting to BrowserStack cloud...")
-        print("📱 Watch live on your iPhone:")
-        print("   https://automate.browserstack.com/dashboard")
+        self.last_result = "Waiting to start..."
+        self.step_counter = 0
         
+        # Create debug folder
+        os.makedirs('debug', exist_ok=True)
+
+        # Chrome options for headless mode
+        options = Options()
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument("--remote-debugging-port=9222")
+
+        print("🔄 Starting Chrome...")
         try:
-            self.driver = webdriver.Remote(
-                command_executor='https://hub-cloud.browserstack.com/wd/hub',
-                desired_capabilities=capabilities
-            )
-            print("✅ Connected to BrowserStack successfully!")
+            service = Service('/usr/lib/chromium-browser/chromedriver')
+            self.driver = webdriver.Chrome(service=service, options=options)
+            print("✅ Chrome started!")
         except Exception as e:
-            print(f"❌ Failed to connect: {e}")
-            print("\nTroubleshooting:")
-            print("1. Check your BrowserStack account is active")
-            print("2. Verify username and access key are correct")
-            print("3. Try logging into BrowserStack manually first")
-            sys.exit(1)
+            print(f"❌ Failed: {e}")
+            try:
+                from webdriver_manager.chrome import ChromeDriverManager
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=options)
+                print("✅ Chrome started with fallback!")
+            except Exception as e2:
+                print(f"❌ Still failed: {e2}")
+                sys.exit(1)
 
         self.selectors = {
             'phone': "//input[@placeholder='Please enter your phone number']",
@@ -61,6 +58,216 @@ class NigerianAccountBot:
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
         }
 
+    # === OPTION 2: SCREENSHOTS ===
+    def take_screenshot(self, name):
+        try:
+            self.step_counter += 1
+            filename = f"debug/{self.step_counter:03d}_{name}.png"
+            self.driver.save_screenshot(filename)
+            print(f"   📸 Screenshot: {filename}")
+            
+            # Also save as artifact-friendly name
+            self.driver.save_screenshot(f"{name}.png")
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Screenshot failed: {e}")
+            return False
+
+    # === OPTION 4: DEBUG PAGE INFO ===
+    def debug_page(self, label="Debug"):
+        try:
+            print(f"\n{'='*40}")
+            print(f"🔍 {label} - Page Debug Info")
+            print(f"{'='*40}")
+            
+            # URL
+            print(f"📄 URL: {self.driver.current_url}")
+            
+            # Page Title
+            try:
+                print(f"📄 Title: {self.driver.title}")
+            except:
+                print("📄 Title: (not available)")
+            
+            # Page Text (first 500 chars)
+            try:
+                body = self.driver.find_element(By.TAG_NAME, "body").text[:500]
+                print(f"📄 Page Text (first 500 chars):")
+                print(f"   {body[:200]}...")
+            except Exception as e:
+                print(f"📄 Page Text: (not available - {e})")
+            
+            # Check for key elements
+            print(f"\n🔍 Element Checks:")
+            
+            # Phone field
+            phone_exists = self.driver.find_elements(By.XPATH, self.selectors['phone'])
+            print(f"   📱 Phone field: {'✅ FOUND' if phone_exists else '❌ NOT FOUND'}")
+            
+            # Password field
+            pass_exists = self.driver.find_elements(By.XPATH, self.selectors['password'])
+            print(f"   🔒 Password field: {'✅ FOUND' if pass_exists else '❌ NOT FOUND'}")
+            
+            # Confirm password field
+            confirm_exists = self.driver.find_elements(By.XPATH, self.selectors['confirm_password'])
+            print(f"   🔒 Confirm password: {'✅ FOUND' if confirm_exists else '❌ NOT FOUND'}")
+            
+            # Invitation code field
+            code_exists = self.driver.find_elements(By.XPATH, self.selectors['invitation_code'])
+            print(f"   🎯 Invitation code: {'✅ FOUND' if code_exists else '❌ NOT FOUND'}")
+            
+            # Register button
+            btn1 = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Register now')]")
+            btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Register')]")
+            print(f"   🔘 Register button: {'✅ FOUND' if (btn1 or btn2) else '❌ NOT FOUND'}")
+            
+            # Check for success/failure indicators
+            page_lower = self.driver.page_source.lower()
+            if "please upgrade your level" in page_lower or "upgrade your level" in page_lower:
+                print(f"   ⚠️ 'Upgrade your level' message found!")
+            
+            success_words = ["cooperative wealth zone", "deposit principal", "invite newcomers", "wealth center", "wish book", "surprise code"]
+            for word in success_words:
+                if word in page_lower:
+                    print(f"   ✅ Success indicator found: '{word}'")
+            
+            print(f"{'='*40}\n")
+            
+            # Take screenshot after debug
+            self.take_screenshot(f"debug_{label.replace(' ', '_')}")
+            
+        except Exception as e:
+            print(f"⚠️ Debug page error: {e}")
+
+    # === OPTION 6: STATUS PAGE ===
+    def create_status_page(self):
+        try:
+            current_code_display = self.format_code(self.current_code) if self.current_code else "N/A"
+            last_result_display = self.last_result if self.last_result else "No results yet"
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta http-equiv="refresh" content="5">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>NNNRC Bot Status</title>
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: #0d1117;
+                        color: #e6edf3;
+                        padding: 20px;
+                        max-width: 800px;
+                        margin: 0 auto;
+                    }}
+                    h1 {{ color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }}
+                    .card {{
+                        background: #161b22;
+                        border: 1px solid #30363d;
+                        border-radius: 8px;
+                        padding: 15px;
+                        margin: 10px 0;
+                    }}
+                    .success {{ color: #3fb950; font-weight: bold; }}
+                    .failure {{ color: #f85149; font-weight: bold; }}
+                    .info {{ color: #58a6ff; }}
+                    .label {{ color: #8b949e; font-size: 0.9em; }}
+                    .value {{ font-size: 1.2em; font-weight: bold; }}
+                    table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }}
+                    th, td {{
+                        border: 1px solid #30363d;
+                        padding: 8px;
+                        text-align: left;
+                    }}
+                    th {{ background: #21262d; }}
+                    .status {{
+                        display: inline-block;
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        font-size: 0.8em;
+                        font-weight: bold;
+                    }}
+                    .running {{ background: #1f6feb; color: white; }}
+                    .done {{ background: #238636; color: white; }}
+                    .failed {{ background: #da3633; color: white; }}
+                </style>
+            </head>
+            <body>
+                <h1>🤖 NNNRC Bot Status</h1>
+                
+                <div class="card">
+                    <div class="label">Status</div>
+                    <div class="value">
+                        <span class="status running">🔄 RUNNING</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="label">Current Code</div>
+                    <div class="value info">{current_code_display}</div>
+                </div>
+                
+                <div class="card">
+                    <div class="label">Last Result</div>
+                    <div class="value">{last_result_display}</div>
+                </div>
+                
+                <div class="card">
+                    <div class="label">Accounts Created</div>
+                    <div class="value success">{len(self.created_accounts)}</div>
+                </div>
+                
+                <div class="card">
+                    <div class="label">Accounts Details</div>
+                    <table>
+                        <tr>
+                            <th>#</th>
+                            <th>Phone</th>
+                            <th>Password</th>
+                            <th>Invitation Code</th>
+                        </tr>
+                        {self.get_accounts_table()}
+                    </table>
+                </div>
+                
+                <div style="text-align: center; color: #8b949e; font-size: 0.8em; margin-top: 20px;">
+                    Last updated: {time.ctime()}<br>
+                    Auto-refresh every 5 seconds
+                </div>
+            </body>
+            </html>
+            """
+            
+            with open('status.html', 'w') as f:
+                f.write(html)
+            print("   📊 Status page updated: status.html")
+            
+        except Exception as e:
+            print(f"⚠️ Status page error: {e}")
+
+    def get_accounts_table(self):
+        if not self.created_accounts:
+            return '<tr><td colspan="4" style="text-align: center; color: #8b949e;">No accounts created yet</td></tr>'
+        
+        rows = []
+        for idx, acc in enumerate(self.created_accounts, 1):
+            rows.append(f"""
+                <tr>
+                    <td>{idx}</td>
+                    <td>{acc.get('phone', 'N/A')}</td>
+                    <td>{acc.get('password', 'N/A')}</td>
+                    <td>{acc.get('invitation_code', 'N/A')}</td>
+                </tr>
+            """)
+        return '\n'.join(rows)
+
+    # === MAIN BOT METHODS ===
     def generate_nigerian_phone(self):
         prefix = random.choice(self.nigerian_prefixes)
         number = ''.join([str(random.randint(0, 9)) for _ in range(8)])
@@ -108,10 +315,14 @@ class NigerianAccountBot:
             confirm_field.send_keys(self.current_password)
 
             print("✅ Form filled!")
+            self.take_screenshot("after_form_fill")
+            self.debug_page("After Form Fill")
+            self.create_status_page()
             return True
 
         except Exception as e:
             print(f"❌ Failed to fill form: {e}")
+            self.take_screenshot("form_fill_error")
             return False
 
     def update_invitation_code(self, code):
@@ -155,6 +366,8 @@ class NigerianAccountBot:
             return True
         except:
             print("   ❌ Could not click Register!")
+            self.take_screenshot("register_click_error")
+            self.debug_page("Register Click Error")
             return False
 
     def check_success(self):
@@ -163,6 +376,7 @@ class NigerianAccountBot:
             current_url = self.driver.current_url.lower()
             
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
+                self.last_result = "❌ Upgrade message - code failed"
                 return False
             
             success_indicators = [
@@ -181,14 +395,20 @@ class NigerianAccountBot:
             
             for indicator in success_indicators:
                 if indicator in page_source:
+                    self.last_result = f"✅ Success! Found '{indicator}'"
+                    self.take_screenshot("success_found")
                     return True
             
             if "dashboard" in current_url or "home" in current_url:
+                self.last_result = "✅ Redirected to dashboard"
+                self.take_screenshot("success_redirect")
                 return True
             
+            self.last_result = "❌ No success indicators found"
             return False
             
         except Exception as e:
+            self.last_result = f"❌ Error: {e}"
             return False
 
     def logout(self):
@@ -206,10 +426,16 @@ class NigerianAccountBot:
             if not self.update_invitation_code(code):
                 return False, None
             
+            self.take_screenshot(f"before_register_{code}")
+            self.debug_page(f"Before Register {code}")
+            
             if not self.click_register_button():
                 return False, None
             
             time.sleep(3)
+            
+            self.take_screenshot(f"after_register_{code}")
+            self.debug_page(f"After Register {code}")
             
             if self.check_success():
                 account_info = {
@@ -220,12 +446,18 @@ class NigerianAccountBot:
                 self.created_accounts.append(account_info)
                 self.save_account(account_info)
                 print(f"   ✅ SUCCESS!")
+                self.last_result = f"✅ SUCCESS! Account created with code {self.format_code(code)}"
+                self.create_status_page()
                 return True, account_info
             
+            self.create_status_page()
             return False, None
             
         except Exception as e:
             print(f"   ⚠️ Error: {e}")
+            self.last_result = f"⚠️ Error: {e}"
+            self.take_screenshot("error")
+            self.create_status_page()
             return False, None
 
     def create_one_account(self):
@@ -260,6 +492,7 @@ class NigerianAccountBot:
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
                 print(f"➡️  Next code: {self.format_code(self.current_code)}")
+                self.create_status_page()
 
                 return True
 
@@ -278,16 +511,20 @@ class NigerianAccountBot:
         print(f"Starting code: {self.format_code(self.current_code)}")
         print(f"Target: {num_accounts} accounts")
         print("="*60)
-        print("\n📱 Watch live on your iPhone:")
-        print("   https://automate.browserstack.com/dashboard")
+        print("\n📊 Status page: status.html")
+        print("📸 Screenshots: debug/*.png")
         print("="*60)
 
         try:
             self.driver.get(url)
             print("✅ Website loaded")
+            self.take_screenshot("page_loaded")
+            self.debug_page("Page Loaded")
+            self.create_status_page()
             time.sleep(3)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
+            self.take_screenshot("load_error")
             return
 
         for i in range(num_accounts):
@@ -298,6 +535,7 @@ class NigerianAccountBot:
                 print(f"⚠️ Failed to create account #{i + 1}")
                 self.driver.get("https://nnnrc.com/#/register")
                 time.sleep(2)
+                self.take_screenshot("recovery")
 
             if i < num_accounts - 1:
                 time.sleep(random.uniform(2, 4))
@@ -308,7 +546,9 @@ class NigerianAccountBot:
         for idx, acc in enumerate(self.created_accounts, 1):
             print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
-
+        
+        self.create_status_page()
+        self.take_screenshot("final")
         self.driver.quit()
 
     def save_account(self, account):
