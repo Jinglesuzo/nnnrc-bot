@@ -29,7 +29,6 @@ class NigerianAccountBot:
                 'platformName': 'Windows 11',
                 'buildName': 'nnnrc-account-bot',
                 'sessionName': 'Account Creation Test',
-                'local': 'true',
                 'debug': 'true',
                 'networkLogs': 'true',
                 'consoleLogs': 'info',
@@ -43,7 +42,7 @@ class NigerianAccountBot:
         
         try:
             self.driver = webdriver.Remote(
-                command_executor='https://hub.browserstack.com/wd/hub',
+                command_executor='https://hub-cloud.browserstack.com/wd/hub',  # ← FIXED URL
                 desired_capabilities=capabilities
             )
             print("✅ Connected to BrowserStack successfully!")
