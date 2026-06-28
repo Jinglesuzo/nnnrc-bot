@@ -20,7 +20,6 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # Chrome options for headless mode
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -29,21 +28,18 @@ class NigerianAccountBot:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--remote-debugging-port=9222")
 
-        print("🔄 Starting Chrome in headless mode...")
+        print("🔄 Starting Chrome...")
         try:
-            # Use the chromium driver directly
             service = Service('/usr/lib/chromium-browser/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started successfully!")
+            print("✅ Chrome started!")
         except Exception as e:
-            print(f"❌ Failed to start Chrome: {e}")
-            # Fallback: Try using webdriver-manager
+            print(f"❌ Failed: {e}")
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
-                print("🔄 Trying webdriver-manager fallback...")
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=options)
-                print("✅ Chrome started successfully with webdriver-manager!")
+                print("✅ Chrome started with fallback!")
             except Exception as e2:
                 print(f"❌ Still failed: {e2}")
                 sys.exit(1)
@@ -53,17 +49,6 @@ class NigerianAccountBot:
             'password': "//input[@placeholder='Please enter the login password']",
             'confirm_password': "//input[@placeholder='Please confirm your password']",
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
-            'submit': [
-                "//button[contains(text(), 'Register now')]",
-                "//button[contains(text(), 'Register')]",
-                "//button[@type='submit']",
-                "//input[@type='submit']"
-            ],
-            'logout': [
-                "//a[contains(text(), 'Logout')]",
-                "//button[contains(text(), 'Logout')]",
-                "//a[contains(@href, 'logout')]"
-            ]
         }
 
     def generate_nigerian_phone(self):
@@ -92,7 +77,7 @@ class NigerianAccountBot:
 
     def fill_form_once(self):
         try:
-            wait = WebDriverWait(self.driver, 10)
+            wait = WebDriverWait(self.driver, 5)
 
             self.current_phone = self.generate_nigerian_phone()
             self.current_password = self.generate_password()
@@ -138,15 +123,69 @@ class NigerianAccountBot:
             return False
 
     def click_register_button(self):
-        for selector in self.selectors['submit']:
-            try:
-                button = self.driver.find_element(By.XPATH, selector)
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-                time.sleep(0.2)
-                self.driver.execute_script("arguments[0].click();", button)
-                return True
-            except:
-                continue
+        print("   🔘 Attempting to click Register...")
+        
+        # 1. Try by text (most reliable)
+        try:
+            print("      Trying by text 'Register now'...")
+            button = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Register now')]")
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+            time.sleep(0.2)
+            self.driver.execute_script("arguments[0].click();", button)
+            print("   ✅ Clicked by text!")
+            return True
+        except:
+            pass
+        
+        # 2. Try by button tag with text
+        try:
+            print("      Trying button tag...")
+            button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Register')]")
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+            time.sleep(0.2)
+            self.driver.execute_script("arguments[0].click();", button)
+            print("   ✅ Clicked by button tag!")
+            return True
+        except:
+            pass
+        
+        # 3. Try by input submit
+        try:
+            print("      Trying input submit...")
+            button = self.driver.find_element(By.XPATH, "//input[@type='submit']")
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+            time.sleep(0.2)
+            self.driver.execute_script("arguments[0].click();", button)
+            print("   ✅ Clicked by input submit!")
+            return True
+        except:
+            pass
+        
+        # 4. Try by any button
+        try:
+            print("      Trying any button...")
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            for button in buttons:
+                if "register" in button.text.lower():
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    time.sleep(0.2)
+                    self.driver.execute_script("arguments[0].click();", button)
+                    print("   ✅ Clicked by finding 'register' in button text!")
+                    return True
+        except:
+            pass
+        
+        # 5. Last resort: submit the form directly
+        try:
+            print("      Trying form submit...")
+            form = self.driver.find_element(By.TAG_NAME, "form")
+            self.driver.execute_script("arguments[0].submit();", form)
+            print("   ✅ Submitted form directly!")
+            return True
+        except:
+            pass
+        
+        print("   ❌ Could not click Register button!")
         return False
 
     def check_success(self):
@@ -183,7 +222,14 @@ class NigerianAccountBot:
             return False, f"Error: {e}"
 
     def logout(self):
-        for selector in self.selectors['logout']:
+        logout_selectors = [
+            "//a[contains(text(), 'Logout')]",
+            "//button[contains(text(), 'Logout')]",
+            "//a[contains(@href, 'logout')]",
+            "//*[contains(text(), 'Log Out')]"
+        ]
+        
+        for selector in logout_selectors:
             try:
                 logout_elements = self.driver.find_elements(By.XPATH, selector)
                 if logout_elements:
@@ -230,6 +276,7 @@ class NigerianAccountBot:
             return False, None
 
         except Exception as e:
+            print(f"   ⚠️ Error in attempt: {e}")
             return False, None
 
     def create_one_account(self):
@@ -238,10 +285,11 @@ class NigerianAccountBot:
         print(f"Starting code: {self.format_code(self.current_code)}")
 
         if not self.fill_form_once():
+            print("❌ Could not fill form - skipping this account")
             return False
 
         attempts = 0
-        max_tries = 200
+        max_tries = 30
 
         while attempts < max_tries:
             code = self.current_code
@@ -271,12 +319,12 @@ class NigerianAccountBot:
             self.current_code = code + 1
             attempts += 1
 
-            time.sleep(random.uniform(0.3, 0.8))
+            time.sleep(0.3)
 
-        print(f"❌ Could not find working code")
+        print(f"❌ Could not find working code after {max_tries} attempts")
         return False
 
-    def run(self, url, num_accounts=10):
+    def run(self, url, num_accounts=3):
         print("="*60)
         print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT (GitHub Actions)")
         print(f"Starting code: {self.format_code(self.current_code)}")
@@ -339,7 +387,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 10
+NUM_ACCOUNTS = 5  # Starting with 5
 
 bot = NigerianAccountBot(start_code=41140)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
