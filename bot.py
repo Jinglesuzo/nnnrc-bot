@@ -19,14 +19,14 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # BrowserStack Capabilities
+        # BrowserStack Capabilities - HARDCODED
         capabilities = {
+            'browserName': 'Chrome',
+            'browserVersion': 'latest',
+            'platformName': 'Windows 11',
             'bstack:options': {
                 'userName': 'clintonuzoukwu_DxtVIs',
                 'accessKey': 'fp7Xx2DDjqxjUbpktpyN',
-                'browserName': 'Chrome',
-                'browserVersion': 'latest',
-                'platformName': 'Windows 11',
                 'buildName': 'nnnrc-account-bot',
                 'sessionName': 'Account Creation Test',
                 'debug': 'true',
@@ -42,12 +42,16 @@ class NigerianAccountBot:
         
         try:
             self.driver = webdriver.Remote(
-                command_executor='https://hub-cloud.browserstack.com/wd/hub',  # ← FIXED URL
+                command_executor='https://hub-cloud.browserstack.com/wd/hub',
                 desired_capabilities=capabilities
             )
             print("✅ Connected to BrowserStack successfully!")
         except Exception as e:
             print(f"❌ Failed to connect: {e}")
+            print("\nTroubleshooting:")
+            print("1. Check your BrowserStack account is active")
+            print("2. Verify username and access key are correct")
+            print("3. Try logging into BrowserStack manually first")
             sys.exit(1)
 
         self.selectors = {
