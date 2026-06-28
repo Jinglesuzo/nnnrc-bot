@@ -4,7 +4,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 import time
 import random
@@ -21,31 +20,30 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # Chrome options for headless mode with explicit path
+        # Chrome options for headless mode
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-setuid-sandbox")
-        options.binary_location = "/usr/bin/google-chrome-stable"  # FIXED: Correct binary name
+        options.add_argument("--remote-debugging-port=9222")
 
         print("🔄 Starting Chrome in headless mode...")
         try:
-            service = Service(ChromeDriverManager().install())
+            # Use the chromium driver directly
+            service = Service('/usr/lib/chromium-browser/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
             print("✅ Chrome started successfully!")
         except Exception as e:
             print(f"❌ Failed to start Chrome: {e}")
-            # Try without explicit path as fallback
+            # Fallback: Try using webdriver-manager
             try:
-                options.binary_location = None
+                from webdriver_manager.chrome import ChromeDriverManager
+                print("🔄 Trying webdriver-manager fallback...")
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=options)
-                print("✅ Chrome started successfully (without explicit path)!")
+                print("✅ Chrome started successfully with webdriver-manager!")
             except Exception as e2:
                 print(f"❌ Still failed: {e2}")
                 sys.exit(1)
@@ -341,7 +339,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 10  # Change this to how many accounts you want
+NUM_ACCOUNTS = 10
 
 bot = NigerianAccountBot(start_code=41140)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
