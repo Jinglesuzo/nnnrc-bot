@@ -10,7 +10,6 @@ import random
 import csv
 import os
 import sys
-import base64
 
 class NigerianAccountBot:
     def __init__(self, start_code=41140):
@@ -21,9 +20,6 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
         self.last_result = "Waiting to start..."
-        self.step_counter = 0
-        
-        os.makedirs('debug', exist_ok=True)
 
         options = Options()
         options.add_argument("--headless=new")
@@ -56,123 +52,13 @@ class NigerianAccountBot:
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
         }
 
-    # === SCREENSHOT ===
     def take_screenshot(self, name):
         try:
-            self.step_counter += 1
-            filename = f"debug/{self.step_counter:03d}_{name}.png"
-            self.driver.save_screenshot(filename)
             self.driver.save_screenshot(f"{name}.png")
-            return True
-        except:
-            return False
-
-    # === DEBUG PAGE ===
-    def debug_page(self, label="Debug"):
-        try:
-            print(f"\n{'='*40}")
-            print(f"🔍 {label} - Page Debug Info")
-            print(f"{'='*40}")
-            print(f"📄 URL: {self.driver.current_url}")
-            
-            # Check for key elements
-            phone_exists = self.driver.find_elements(By.XPATH, self.selectors['phone'])
-            print(f"   📱 Phone field: {'✅ FOUND' if phone_exists else '❌ NOT FOUND'}")
-            
-            pass_exists = self.driver.find_elements(By.XPATH, self.selectors['password'])
-            print(f"   🔒 Password field: {'✅ FOUND' if pass_exists else '❌ NOT FOUND'}")
-            
-            btn1 = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Register now')]")
-            btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Register')]")
-            print(f"   🔘 Register button: {'✅ FOUND' if (btn1 or btn2) else '❌ NOT FOUND'}")
-            
-            # Check for success indicators
-            page_lower = self.driver.page_source.lower()
-            if "important notice" in page_lower:
-                print(f"   ✅ 'Important Notice' found - SUCCESS!")
-            if "limited-time free upgrade" in page_lower:
-                print(f"   ✅ 'Free Upgrade' found - SUCCESS!")
-            if "please upgrade your level" in page_lower:
-                print(f"   ❌ 'Upgrade your level' found - FAILURE")
-            
-            print(f"{'='*40}\n")
-            self.take_screenshot(f"debug_{label.replace(' ', '_')}")
-        except Exception as e:
-            print(f"⚠️ Debug page error: {e}")
-
-    # === STATUS PAGE ===
-    def create_status_page(self):
-        try:
-            current_code_display = self.format_code(self.current_code) if self.current_code else "N/A"
-            
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta http-equiv="refresh" content="5">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>NNNRC Bot Status</title>
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; padding: 20px; max-width: 800px; margin: 0 auto; }}
-                    h1 {{ color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }}
-                    .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin: 10px 0; }}
-                    .success {{ color: #3fb950; font-weight: bold; }}
-                    .failure {{ color: #f85149; font-weight: bold; }}
-                    .info {{ color: #58a6ff; }}
-                    .label {{ color: #8b949e; font-size: 0.9em; }}
-                    .value {{ font-size: 1.2em; font-weight: bold; }}
-                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-                    th, td {{ border: 1px solid #30363d; padding: 8px; text-align: left; }}
-                    th {{ background: #21262d; }}
-                    .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; background: #1f6feb; color: white; }}
-                </style>
-            </head>
-            <body>
-                <h1>🤖 NNNRC Bot Status</h1>
-                <div class="card">
-                    <div class="label">Status</div>
-                    <div class="value"><span class="status">🔄 RUNNING</span></div>
-                </div>
-                <div class="card">
-                    <div class="label">Current Code</div>
-                    <div class="value info">{current_code_display}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Last Result</div>
-                    <div class="value">{self.last_result}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Accounts Created</div>
-                    <div class="value success">{len(self.created_accounts)}</div>
-                </div>
-                <div class="card">
-                    <div class="label">Accounts Details</div>
-                    <table>
-                        <tr><th>#</th><th>Phone</th><th>Password</th><th>Invitation Code</th></tr>
-                        {self.get_accounts_table()}
-                    </table>
-                </div>
-                <div style="text-align: center; color: #8b949e; font-size: 0.8em; margin-top: 20px;">
-                    Last updated: {time.ctime()}<br>Auto-refresh every 5 seconds
-                </div>
-            </body>
-            </html>
-            """
-            with open('status.html', 'w') as f:
-                f.write(html)
+            print(f"   📸 Screenshot: {name}.png")
         except:
             pass
 
-    def get_accounts_table(self):
-        if not self.created_accounts:
-            return '<tr><td colspan="4" style="text-align: center; color: #8b949e;">No accounts created yet</td></tr>'
-        rows = []
-        for idx, acc in enumerate(self.created_accounts, 1):
-            rows.append(f"<tr><td>{idx}</td><td>{acc.get('phone', 'N/A')}</td><td>{acc.get('password', 'N/A')}</td><td>{acc.get('invitation_code', 'N/A')}</td></tr>")
-        return '\n'.join(rows)
-
-    # === BOT METHODS ===
     def generate_nigerian_phone(self):
         prefix = random.choice(self.nigerian_prefixes)
         number = ''.join([str(random.randint(0, 9)) for _ in range(8)])
@@ -221,9 +107,8 @@ class NigerianAccountBot:
 
             print("✅ Form filled!")
             self.take_screenshot("after_form_fill")
-            self.debug_page("After Form Fill")
-            self.create_status_page()
             return True
+
         except Exception as e:
             print(f"❌ Failed to fill form: {e}")
             return False
@@ -250,6 +135,7 @@ class NigerianAccountBot:
             return True
         except:
             pass
+        
         try:
             button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Register')]")
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
@@ -259,6 +145,7 @@ class NigerianAccountBot:
             return True
         except:
             pass
+        
         try:
             form = self.driver.find_element(By.TAG_NAME, "form")
             self.driver.execute_script("arguments[0].submit();", form)
@@ -269,17 +156,12 @@ class NigerianAccountBot:
             return False
 
     def check_success(self):
+        """Check if account was created successfully"""
         try:
             page_source = self.driver.page_source.lower()
-            current_url = self.driver.current_url.lower()
             
-            # --- FAILURE CHECK ---
-            if "please upgrade your level" in page_source or "upgrade your level" in page_source:
-                self.last_result = "❌ Upgrade message - code failed"
-                return False
-            
-            # --- SUCCESS CHECK ---
-            # Check for the "Important Notice" popup
+            # --- CHECK FOR SUCCESS ---
+            # The "Important Notice" popup = SUCCESS!
             if "important notice" in page_source:
                 self.last_result = "✅ SUCCESS! Important Notice found"
                 self.take_screenshot("success_important_notice")
@@ -290,31 +172,23 @@ class NigerianAccountBot:
                 self.take_screenshot("success_free_upgrade")
                 return True
             
+            # --- CHECK FOR FAILURE ---
+            if "please upgrade your level" in page_source or "upgrade your level" in page_source:
+                self.last_result = "❌ Upgrade message - code failed"
+                return False
+            
             # Other success indicators
-            success_indicators = [
-                "cooperative wealth zone",
-                "deposit principal",
-                "invite newcomers",
-                "wealth center",
-                "wish book",
-                "surprise code",
-                "benefit savings",
-                "dashboard",
-                "home",
-                "welcome",
-                "success"
+            success_words = [
+                "cooperative wealth zone", "deposit principal", "invite newcomers",
+                "wealth center", "wish book", "surprise code", "benefit savings",
+                "dashboard", "home", "welcome", "success"
             ]
             
-            for indicator in success_indicators:
-                if indicator in page_source:
-                    self.last_result = f"✅ Success: '{indicator}' found"
-                    self.take_screenshot(f"success_{indicator.replace(' ', '_')}")
+            for word in success_words:
+                if word in page_source:
+                    self.last_result = f"✅ Success: '{word}' found"
+                    self.take_screenshot(f"success_{word.replace(' ', '_')}")
                     return True
-            
-            if "dashboard" in current_url or "home" in current_url:
-                self.last_result = "✅ Redirected to dashboard"
-                self.take_screenshot("success_redirect")
-                return True
             
             self.last_result = "❌ No success indicators found"
             return False
@@ -324,31 +198,47 @@ class NigerianAccountBot:
             return False
 
     def logout(self):
+        """Logout by going to logout URL"""
         try:
-            self.driver.delete_all_cookies()
-            self.driver.get("https://nnnrc.com/#/register")
+            print(f"   🔄 Logging out...")
+            self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
-            print("   ✅ Logged out")
+            print(f"   ✅ Logged out")
             return True
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Logout error: {e}")
+            return False
+
+    def go_to_register_page(self):
+        """Navigate back to register page"""
+        try:
+            self.driver.get("https://nnnrc.com/#/register")
+            time.sleep(3)
+            print("   ✅ Back to register page")
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Navigation error: {e}")
             return False
 
     def attempt_creation(self, code):
         try:
+            # Update invitation code only
             if not self.update_invitation_code(code):
                 return False, None
             
-            self.take_screenshot(f"before_register_{code}")
-            
+            # Click Register
             if not self.click_register_button():
                 return False, None
             
+            # Wait for response
             time.sleep(3)
             
-            self.take_screenshot(f"after_register_{code}")
-            self.debug_page(f"After Register {code}")
+            # Take screenshot of result
+            self.take_screenshot(f"result_{code}")
             
+            # Check if success
             if self.check_success():
+                # SAVE THE ACCOUNT!
                 account_info = {
                     'phone': self.current_phone,
                     'password': self.current_password,
@@ -356,17 +246,14 @@ class NigerianAccountBot:
                 }
                 self.created_accounts.append(account_info)
                 self.save_account(account_info)
-                print(f"   ✅ SUCCESS!")
-                self.last_result = f"✅ SUCCESS! Account created with code {self.format_code(code)}"
-                self.create_status_page()
+                print(f"   ✅✅✅ SUCCESS! Account created with code: {self.format_code(code)}")
+                self.last_result = f"✅ SUCCESS! Code {self.format_code(code)} worked!"
                 return True, account_info
             
-            self.create_status_page()
             return False, None
             
         except Exception as e:
-            print(f"   ⚠️ Error: {e}")
-            self.last_result = f"⚠️ Error: {e}"
+            print(f"   ⚠️ Error in attempt: {e}")
             return False, None
 
     def create_one_account(self):
@@ -374,7 +261,9 @@ class NigerianAccountBot:
         print(f"🆕 Account #{self.account_counter + 1}")
         print(f"Starting code: {self.format_code(self.current_code)}")
 
+        # Fill form with phone + password (ONCE per account)
         if not self.fill_form_once():
+            print("❌ Could not fill form")
             return False
 
         attempts = 0
@@ -389,73 +278,83 @@ class NigerianAccountBot:
             if success:
                 print(f"✅")
                 print(f"\n✅ ACCOUNT CREATED!")
-                print(f"   Phone: {account['phone']}")
-                print(f"   Password: {account['password']}")
-                print(f"   Invitation Code: {account['invitation_code']}")
-
+                print(f"   📱 Phone: {account['phone']}")
+                print(f"   🔑 Password: {account['password']}")
+                print(f"   🎯 Invitation Code: {account['invitation_code']}")
+                
+                # Logout
                 self.logout()
-                self.driver.get("https://nnnrc.com/#/register")
-                time.sleep(2)
-
+                
+                # Go back to register page
+                self.go_to_register_page()
+                
+                # Move to next code
                 self.current_code = code + 1
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
                 print(f"➡️  Next code: {self.format_code(self.current_code)}")
-                self.create_status_page()
-
+                
                 return True
 
             print(f"❌")
             self.current_code = code + 1
             attempts += 1
-
+            
+            # Small delay between attempts
             time.sleep(0.3)
 
-        print(f"❌ Could not find working code")
+        print(f"❌ Could not find working code after {max_tries} attempts")
         return False
 
-    def run(self, url, num_accounts=1):
+    def run(self, url, num_accounts=3):
         print("="*60)
         print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT")
         print(f"Starting code: {self.format_code(self.current_code)}")
         print(f"Target: {num_accounts} accounts")
         print("="*60)
 
+        # Load the register page
         try:
             self.driver.get(url)
             print("✅ Website loaded")
             self.take_screenshot("page_loaded")
-            self.debug_page("Page Loaded")
-            self.create_status_page()
             time.sleep(3)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
             return
 
+        # Create accounts
         for i in range(num_accounts):
             print(f"\n🎯 Creating Account #{i + 1} of {num_accounts}")
             success = self.create_one_account()
 
             if not success:
                 print(f"⚠️ Failed to create account #{i + 1}")
-                self.driver.get("https://nnnrc.com/#/register")
-                time.sleep(2)
+                # Try to recover
+                self.go_to_register_page()
+                self.take_screenshot("recovery")
 
+            # Delay between accounts
             if i < num_accounts - 1:
-                time.sleep(random.uniform(2, 4))
+                delay = random.uniform(3, 6)
+                print(f"⏳ Waiting {delay:.1f}s before next account...")
+                time.sleep(delay)
 
+        # Final summary
         print("\n" + "="*60)
         print("📊 FINAL SUMMARY")
         print(f"Total accounts created: {len(self.created_accounts)}")
+        print("\nAccount details:")
         for idx, acc in enumerate(self.created_accounts, 1):
             print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
         
-        self.create_status_page()
+        # Final screenshot
         self.take_screenshot("final")
         self.driver.quit()
 
     def save_account(self, account):
+        """Save successful account to CSV"""
         file_exists = os.path.isfile('accounts.csv')
         with open('accounts.csv', 'a', newline='') as f:
             writer = csv.writer(f)
@@ -475,7 +374,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 1
+NUM_ACCOUNTS = 5  # Change this to how many accounts you want
 
 bot = NigerianAccountBot(start_code=41140)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
