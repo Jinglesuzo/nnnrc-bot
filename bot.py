@@ -21,23 +21,35 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # Chrome options for headless mode
+        # Chrome options for headless mode with explicit path
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--disable-software-rasterizer")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-setuid-sandbox")
+        options.binary_location = "/usr/bin/google-chrome"  # Explicit path to Chrome
 
         print("🔄 Starting Chrome in headless mode...")
         try:
-            # Use webdriver-manager to automatically handle ChromeDriver
+            # Try with explicit path
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
             print("✅ Chrome started successfully!")
         except Exception as e:
-            print(f"❌ Failed to start Chrome: {e}")
-            sys.exit(1)
+            print(f"❌ Failed to start Chrome with explicit path: {e}")
+            # Try without explicit path as fallback
+            try:
+                options.binary_location = None
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=options)
+                print("✅ Chrome started successfully (without explicit path)!")
+            except Exception as e2:
+                print(f"❌ Still failed: {e2}")
+                sys.exit(1)
 
         self.selectors = {
             'phone': "//input[@placeholder='Please enter your phone number']",
