@@ -12,16 +12,11 @@ import sys
 
 class NigerianAccountBot:
     def __init__(self):
-        # Fixed phone and password for testing
         self.phone = "08012345678"
         self.password = "123456"
-        
-        # Codes to test: 0041140 to 0041145 (6 codes)
         self.codes_to_test = ['0041140', '0041141', '0041142', '0041143', '0041144', '0041145']
-        self.success_code = '0041142'  # The code we know works
         self.created_accounts = []
         
-        # Chrome options for headless mode
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -54,7 +49,6 @@ class NigerianAccountBot:
         }
 
     def clear_field(self, element):
-        """Clear a field completely"""
         try:
             element.click()
             time.sleep(0.1)
@@ -68,7 +62,6 @@ class NigerianAccountBot:
             return False
 
     def fill_form(self):
-        """Fill the form ONCE with phone and password"""
         try:
             wait = WebDriverWait(self.driver, 10)
             
@@ -87,27 +80,24 @@ class NigerianAccountBot:
             self.clear_field(confirm_field)
             confirm_field.send_keys(self.password)
 
-            print("✅ Form filled successfully!")
+            print("✅ Form filled!")
             return True
-
         except Exception as e:
             print(f"❌ Failed to fill form: {e}")
             return False
 
     def update_invitation_code(self, code):
-        """ONLY update the invitation code field"""
         try:
             code_field = self.driver.find_element(By.XPATH, self.selectors['invitation_code'])
             self.clear_field(code_field)
             code_field.send_keys(code)
-            print(f"   ✅ Code updated to: {code}")
+            print(f"   ✅ Code: {code}")
             return True
         except Exception as e:
-            print(f"   ❌ Failed to update code: {e}")
+            print(f"   ❌ Failed: {e}")
             return False
 
-    def click_register_button(self):
-        """Click the Register button"""
+    def click_register(self):
         try:
             button = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Register now')]")
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
@@ -116,41 +106,32 @@ class NigerianAccountBot:
             print("   ✅ Clicked Register!")
             return True
         except:
-            pass
-        
-        try:
-            button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Register')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-            time.sleep(0.2)
-            self.driver.execute_script("arguments[0].click();", button)
-            print("   ✅ Clicked Register!")
-            return True
-        except:
-            pass
-        
-        try:
-            form = self.driver.find_element(By.TAG_NAME, "form")
-            self.driver.execute_script("arguments[0].submit();", form)
-            print("   ✅ Submitted form!")
-            return True
-        except:
-            pass
-        
-        print("   ❌ Could not click Register!")
-        return False
+            try:
+                button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Register')]")
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                time.sleep(0.2)
+                self.driver.execute_script("arguments[0].click();", button)
+                print("   ✅ Clicked Register!")
+                return True
+            except:
+                try:
+                    form = self.driver.find_element(By.TAG_NAME, "form")
+                    self.driver.execute_script("arguments[0].submit();", form)
+                    print("   ✅ Submitted form!")
+                    return True
+                except:
+                    print("   ❌ Could not click Register!")
+                    return False
 
-    def check_success(self, code):
-        """Check if account was created successfully for this code"""
+    def check_success(self):
         try:
             page_source = self.driver.page_source.lower()
             current_url = self.driver.current_url.lower()
             
-            # Check for failure
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
-                return False, "Upgrade message - code failed"
+                return False
             
-            # Check for success indicators
-            success_indicators = [
+            success_words = [
                 "cooperative wealth zone",
                 "deposit principal",
                 "invite newcomers",
@@ -160,23 +141,22 @@ class NigerianAccountBot:
                 "benefit savings",
                 "dashboard",
                 "home",
-                "welcome"
+                "welcome",
+                "success"
             ]
             
-            for indicator in success_indicators:
-                if indicator in page_source:
-                    return True, f"Success! '{indicator}' found"
+            for word in success_words:
+                if word in page_source:
+                    return True
             
             if "dashboard" in current_url or "home" in current_url:
-                return True, "Redirected to dashboard"
+                return True
             
-            return False, "No success indicators found"
-            
-        except Exception as e:
-            return False, f"Error checking: {e}"
+            return False
+        except:
+            return False
 
     def logout(self):
-        """Logout and return to register page"""
         try:
             self.driver.delete_all_cookies()
             self.driver.get("https://nnnrc.com/#/register")
@@ -188,107 +168,66 @@ class NigerianAccountBot:
 
     def run(self):
         print("="*60)
-        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT - TEST MODE")
-        print(f"Phone: {self.phone}")
-        print(f"Codes to test: {', '.join(self.codes_to_test)}")
-        print(f"Expected success code: {self.success_code}")
+        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT - TEST")
+        print(f"Codes: {', '.join(self.codes_to_test)}")
         print("="*60)
         
-        # Navigate to register page
-        try:
-            self.driver.get("https://nnnrc.com/#/register")
-            print("✅ Website loaded")
-            time.sleep(3)
-        except Exception as e:
-            print(f"❌ Failed to load: {e}")
-            return
+        self.driver.get("https://nnnrc.com/#/register")
+        print("✅ Website loaded")
+        time.sleep(3)
         
-        # Fill the form ONCE (phone + password)
         if not self.fill_form():
-            print("❌ Could not fill form")
             self.driver.quit()
             return
         
-        # Test each code
         for code in self.codes_to_test:
             print(f"\n--- Testing Code: {code} ---")
             
-            # Only update the invitation code (NO page refresh)
             if not self.update_invitation_code(code):
-                print("   ❌ Could not update code - skipping")
                 continue
             
-            # Click Register
-            if not self.click_register_button():
-                print("   ❌ Could not click Register - skipping")
+            if not self.click_register():
                 continue
             
-            # Wait for response
             time.sleep(3)
             
-            # Check if account was created
-            success, message = self.check_success(code)
-            
-            if success:
-                print(f"\n✅ Account created with code: {code}")
-                print(f"   Phone: {self.phone}")
-                print(f"   Password: {self.password}")
-                
-                # Only save if it's the correct code
-                if code == self.success_code:
-                    print(f"\n🎯 CORRECT CODE FOUND! {code} matches expected success code!")
-                    account_info = {
-                        'phone': self.phone,
-                        'password': self.password,
-                        'invitation_code': code,
-                        'success_indicator': message
-                    }
-                    self.created_accounts.append(account_info)
-                    self.save_account(account_info)
-                    
-                    print("\n🔄 Logging out...")
-                    self.logout()
-                    break
-                else:
-                    print(f"   ⚠️ Code {code} created account, but expecting {self.success_code}")
-                    print("   Continue testing...")
-                    # Logout and go back to register page to test next code
-                    self.logout()
-                    self.driver.get("https://nnnrc.com/#/register")
-                    time.sleep(3)
-                    # Fill the form again
-                    self.fill_form()
+            if self.check_success():
+                print(f"\n✅✅✅ ACCOUNT CREATED! Code: {code}")
+                account_info = {
+                    'phone': self.phone,
+                    'password': self.password,
+                    'invitation_code': code
+                }
+                self.created_accounts.append(account_info)
+                self.save_account(account_info)
+                self.logout()
+                break
             else:
-                print(f"   ❌ {message}")
-                # Continue to next code - page stays the same, only code changes
+                print(f"   ❌ Code {code} failed")
         
-        # Summary
         print("\n" + "="*60)
-        print("📊 TEST SUMMARY")
+        print("📊 SUMMARY")
         if self.created_accounts:
-            print(f"✅ SUCCESS! Account created with expected code: {self.created_accounts[0]['invitation_code']}")
-            print(f"   Phone: {self.created_accounts[0]['phone']}")
-            print(f"   Password: {self.created_accounts[0]['password']}")
+            print(f"✅ SUCCESS! Account created with code: {self.created_accounts[0]['invitation_code']}")
+            print(f"   Phone: {self.phone}")
+            print(f"   Password: {self.password}")
         else:
-            print(f"❌ No account created with expected code {self.success_code}.")
-            print("   Check the website or the code format.")
+            print("❌ No account created")
         print("="*60)
         
         self.driver.quit()
 
     def save_account(self, account):
-        """Save successful account to CSV"""
         file_exists = os.path.isfile('accounts.csv')
         with open('accounts.csv', 'a', newline='') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['Phone', 'Password', 'Invitation Code', 'Timestamp', 'Success Indicator'])
+                writer.writerow(['Phone', 'Password', 'Invitation Code', 'Timestamp'])
             writer.writerow([
                 account['phone'],
                 account['password'],
                 account['invitation_code'],
-                time.ctime(),
-                account.get('success_indicator', 'Dashboard detected')
+                time.ctime()
             ])
         print(f"   💾 Saved to accounts.csv")
 
