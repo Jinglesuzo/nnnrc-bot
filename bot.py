@@ -23,10 +23,8 @@ class NigerianAccountBot:
         self.last_result = "Waiting to start..."
         self.step_counter = 0
         
-        # Create debug folder
         os.makedirs('debug', exist_ok=True)
 
-        # Chrome options for headless mode
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -58,92 +56,54 @@ class NigerianAccountBot:
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
         }
 
-    # === OPTION 2: SCREENSHOTS ===
+    # === SCREENSHOT ===
     def take_screenshot(self, name):
         try:
             self.step_counter += 1
             filename = f"debug/{self.step_counter:03d}_{name}.png"
             self.driver.save_screenshot(filename)
-            print(f"   📸 Screenshot: {filename}")
-            
-            # Also save as artifact-friendly name
             self.driver.save_screenshot(f"{name}.png")
             return True
-        except Exception as e:
-            print(f"   ⚠️ Screenshot failed: {e}")
+        except:
             return False
 
-    # === OPTION 4: DEBUG PAGE INFO ===
+    # === DEBUG PAGE ===
     def debug_page(self, label="Debug"):
         try:
             print(f"\n{'='*40}")
             print(f"🔍 {label} - Page Debug Info")
             print(f"{'='*40}")
-            
-            # URL
             print(f"📄 URL: {self.driver.current_url}")
             
-            # Page Title
-            try:
-                print(f"📄 Title: {self.driver.title}")
-            except:
-                print("📄 Title: (not available)")
-            
-            # Page Text (first 500 chars)
-            try:
-                body = self.driver.find_element(By.TAG_NAME, "body").text[:500]
-                print(f"📄 Page Text (first 500 chars):")
-                print(f"   {body[:200]}...")
-            except Exception as e:
-                print(f"📄 Page Text: (not available - {e})")
-            
             # Check for key elements
-            print(f"\n🔍 Element Checks:")
-            
-            # Phone field
             phone_exists = self.driver.find_elements(By.XPATH, self.selectors['phone'])
             print(f"   📱 Phone field: {'✅ FOUND' if phone_exists else '❌ NOT FOUND'}")
             
-            # Password field
             pass_exists = self.driver.find_elements(By.XPATH, self.selectors['password'])
             print(f"   🔒 Password field: {'✅ FOUND' if pass_exists else '❌ NOT FOUND'}")
             
-            # Confirm password field
-            confirm_exists = self.driver.find_elements(By.XPATH, self.selectors['confirm_password'])
-            print(f"   🔒 Confirm password: {'✅ FOUND' if confirm_exists else '❌ NOT FOUND'}")
-            
-            # Invitation code field
-            code_exists = self.driver.find_elements(By.XPATH, self.selectors['invitation_code'])
-            print(f"   🎯 Invitation code: {'✅ FOUND' if code_exists else '❌ NOT FOUND'}")
-            
-            # Register button
             btn1 = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Register now')]")
             btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Register')]")
             print(f"   🔘 Register button: {'✅ FOUND' if (btn1 or btn2) else '❌ NOT FOUND'}")
             
-            # Check for success/failure indicators
+            # Check for success indicators
             page_lower = self.driver.page_source.lower()
-            if "please upgrade your level" in page_lower or "upgrade your level" in page_lower:
-                print(f"   ⚠️ 'Upgrade your level' message found!")
-            
-            success_words = ["cooperative wealth zone", "deposit principal", "invite newcomers", "wealth center", "wish book", "surprise code"]
-            for word in success_words:
-                if word in page_lower:
-                    print(f"   ✅ Success indicator found: '{word}'")
+            if "important notice" in page_lower:
+                print(f"   ✅ 'Important Notice' found - SUCCESS!")
+            if "limited-time free upgrade" in page_lower:
+                print(f"   ✅ 'Free Upgrade' found - SUCCESS!")
+            if "please upgrade your level" in page_lower:
+                print(f"   ❌ 'Upgrade your level' found - FAILURE")
             
             print(f"{'='*40}\n")
-            
-            # Take screenshot after debug
             self.take_screenshot(f"debug_{label.replace(' ', '_')}")
-            
         except Exception as e:
             print(f"⚠️ Debug page error: {e}")
 
-    # === OPTION 6: STATUS PAGE ===
+    # === STATUS PAGE ===
     def create_status_page(self):
         try:
             current_code_display = self.format_code(self.current_code) if self.current_code else "N/A"
-            last_result_display = self.last_result if self.last_result else "No results yet"
             
             html = f"""
             <!DOCTYPE html>
@@ -154,120 +114,65 @@ class NigerianAccountBot:
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>NNNRC Bot Status</title>
                 <style>
-                    body {{
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        background: #0d1117;
-                        color: #e6edf3;
-                        padding: 20px;
-                        max-width: 800px;
-                        margin: 0 auto;
-                    }}
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #e6edf3; padding: 20px; max-width: 800px; margin: 0 auto; }}
                     h1 {{ color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }}
-                    .card {{
-                        background: #161b22;
-                        border: 1px solid #30363d;
-                        border-radius: 8px;
-                        padding: 15px;
-                        margin: 10px 0;
-                    }}
+                    .card {{ background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin: 10px 0; }}
                     .success {{ color: #3fb950; font-weight: bold; }}
                     .failure {{ color: #f85149; font-weight: bold; }}
                     .info {{ color: #58a6ff; }}
                     .label {{ color: #8b949e; font-size: 0.9em; }}
                     .value {{ font-size: 1.2em; font-weight: bold; }}
-                    table {{
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 10px;
-                    }}
-                    th, td {{
-                        border: 1px solid #30363d;
-                        padding: 8px;
-                        text-align: left;
-                    }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+                    th, td {{ border: 1px solid #30363d; padding: 8px; text-align: left; }}
                     th {{ background: #21262d; }}
-                    .status {{
-                        display: inline-block;
-                        padding: 4px 12px;
-                        border-radius: 20px;
-                        font-size: 0.8em;
-                        font-weight: bold;
-                    }}
-                    .running {{ background: #1f6feb; color: white; }}
-                    .done {{ background: #238636; color: white; }}
-                    .failed {{ background: #da3633; color: white; }}
+                    .status {{ display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; background: #1f6feb; color: white; }}
                 </style>
             </head>
             <body>
                 <h1>🤖 NNNRC Bot Status</h1>
-                
                 <div class="card">
                     <div class="label">Status</div>
-                    <div class="value">
-                        <span class="status running">🔄 RUNNING</span>
-                    </div>
+                    <div class="value"><span class="status">🔄 RUNNING</span></div>
                 </div>
-                
                 <div class="card">
                     <div class="label">Current Code</div>
                     <div class="value info">{current_code_display}</div>
                 </div>
-                
                 <div class="card">
                     <div class="label">Last Result</div>
-                    <div class="value">{last_result_display}</div>
+                    <div class="value">{self.last_result}</div>
                 </div>
-                
                 <div class="card">
                     <div class="label">Accounts Created</div>
                     <div class="value success">{len(self.created_accounts)}</div>
                 </div>
-                
                 <div class="card">
                     <div class="label">Accounts Details</div>
                     <table>
-                        <tr>
-                            <th>#</th>
-                            <th>Phone</th>
-                            <th>Password</th>
-                            <th>Invitation Code</th>
-                        </tr>
+                        <tr><th>#</th><th>Phone</th><th>Password</th><th>Invitation Code</th></tr>
                         {self.get_accounts_table()}
                     </table>
                 </div>
-                
                 <div style="text-align: center; color: #8b949e; font-size: 0.8em; margin-top: 20px;">
-                    Last updated: {time.ctime()}<br>
-                    Auto-refresh every 5 seconds
+                    Last updated: {time.ctime()}<br>Auto-refresh every 5 seconds
                 </div>
             </body>
             </html>
             """
-            
             with open('status.html', 'w') as f:
                 f.write(html)
-            print("   📊 Status page updated: status.html")
-            
-        except Exception as e:
-            print(f"⚠️ Status page error: {e}")
+        except:
+            pass
 
     def get_accounts_table(self):
         if not self.created_accounts:
             return '<tr><td colspan="4" style="text-align: center; color: #8b949e;">No accounts created yet</td></tr>'
-        
         rows = []
         for idx, acc in enumerate(self.created_accounts, 1):
-            rows.append(f"""
-                <tr>
-                    <td>{idx}</td>
-                    <td>{acc.get('phone', 'N/A')}</td>
-                    <td>{acc.get('password', 'N/A')}</td>
-                    <td>{acc.get('invitation_code', 'N/A')}</td>
-                </tr>
-            """)
+            rows.append(f"<tr><td>{idx}</td><td>{acc.get('phone', 'N/A')}</td><td>{acc.get('password', 'N/A')}</td><td>{acc.get('invitation_code', 'N/A')}</td></tr>")
         return '\n'.join(rows)
 
-    # === MAIN BOT METHODS ===
+    # === BOT METHODS ===
     def generate_nigerian_phone(self):
         prefix = random.choice(self.nigerian_prefixes)
         number = ''.join([str(random.randint(0, 9)) for _ in range(8)])
@@ -319,17 +224,14 @@ class NigerianAccountBot:
             self.debug_page("After Form Fill")
             self.create_status_page()
             return True
-
         except Exception as e:
             print(f"❌ Failed to fill form: {e}")
-            self.take_screenshot("form_fill_error")
             return False
 
     def update_invitation_code(self, code):
         try:
             formatted_code = self.format_code(code)
             code_field = self.driver.find_element(By.XPATH, self.selectors['invitation_code'])
-            
             self.clear_field(code_field)
             code_field.send_keys(formatted_code)
             print(f"   ✅ Code: {formatted_code}")
@@ -348,7 +250,6 @@ class NigerianAccountBot:
             return True
         except:
             pass
-        
         try:
             button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Register')]")
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
@@ -358,7 +259,6 @@ class NigerianAccountBot:
             return True
         except:
             pass
-        
         try:
             form = self.driver.find_element(By.TAG_NAME, "form")
             self.driver.execute_script("arguments[0].submit();", form)
@@ -366,8 +266,6 @@ class NigerianAccountBot:
             return True
         except:
             print("   ❌ Could not click Register!")
-            self.take_screenshot("register_click_error")
-            self.debug_page("Register Click Error")
             return False
 
     def check_success(self):
@@ -375,10 +273,24 @@ class NigerianAccountBot:
             page_source = self.driver.page_source.lower()
             current_url = self.driver.current_url.lower()
             
+            # --- FAILURE CHECK ---
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
                 self.last_result = "❌ Upgrade message - code failed"
                 return False
             
+            # --- SUCCESS CHECK ---
+            # Check for the "Important Notice" popup
+            if "important notice" in page_source:
+                self.last_result = "✅ SUCCESS! Important Notice found"
+                self.take_screenshot("success_important_notice")
+                return True
+            
+            if "limited-time free upgrade" in page_source:
+                self.last_result = "✅ SUCCESS! Free Upgrade found"
+                self.take_screenshot("success_free_upgrade")
+                return True
+            
+            # Other success indicators
             success_indicators = [
                 "cooperative wealth zone",
                 "deposit principal",
@@ -395,8 +307,8 @@ class NigerianAccountBot:
             
             for indicator in success_indicators:
                 if indicator in page_source:
-                    self.last_result = f"✅ Success! Found '{indicator}'"
-                    self.take_screenshot("success_found")
+                    self.last_result = f"✅ Success: '{indicator}' found"
+                    self.take_screenshot(f"success_{indicator.replace(' ', '_')}")
                     return True
             
             if "dashboard" in current_url or "home" in current_url:
@@ -427,7 +339,6 @@ class NigerianAccountBot:
                 return False, None
             
             self.take_screenshot(f"before_register_{code}")
-            self.debug_page(f"Before Register {code}")
             
             if not self.click_register_button():
                 return False, None
@@ -456,8 +367,6 @@ class NigerianAccountBot:
         except Exception as e:
             print(f"   ⚠️ Error: {e}")
             self.last_result = f"⚠️ Error: {e}"
-            self.take_screenshot("error")
-            self.create_status_page()
             return False, None
 
     def create_one_account(self):
@@ -511,9 +420,6 @@ class NigerianAccountBot:
         print(f"Starting code: {self.format_code(self.current_code)}")
         print(f"Target: {num_accounts} accounts")
         print("="*60)
-        print("\n📊 Status page: status.html")
-        print("📸 Screenshots: debug/*.png")
-        print("="*60)
 
         try:
             self.driver.get(url)
@@ -524,7 +430,6 @@ class NigerianAccountBot:
             time.sleep(3)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
-            self.take_screenshot("load_error")
             return
 
         for i in range(num_accounts):
@@ -535,7 +440,6 @@ class NigerianAccountBot:
                 print(f"⚠️ Failed to create account #{i + 1}")
                 self.driver.get("https://nnnrc.com/#/register")
                 time.sleep(2)
-                self.take_screenshot("recovery")
 
             if i < num_accounts - 1:
                 time.sleep(random.uniform(2, 4))
