@@ -3,6 +3,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 import time
 import random
@@ -19,7 +21,7 @@ class NigerianAccountBot:
         self.current_phone = None
         self.current_password = None
 
-        # Headless Chrome for GitHub Actions
+        # Chrome options for headless mode
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -29,7 +31,9 @@ class NigerianAccountBot:
 
         print("🔄 Starting Chrome in headless mode...")
         try:
-            self.driver = webdriver.Chrome(options=options)
+            # Use webdriver-manager to automatically handle ChromeDriver
+            service = Service(ChromeDriverManager().install())
+            self.driver = webdriver.Chrome(service=service, options=options)
             print("✅ Chrome started successfully!")
         except Exception as e:
             print(f"❌ Failed to start Chrome: {e}")
