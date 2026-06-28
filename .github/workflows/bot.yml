@@ -16,21 +16,17 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Chrome and ChromeDriver
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver
-          chromedriver --version
-          chromium-browser --version
-
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
       - name: Run bot
         run: python bot.py
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
 
-      - name: Upload results
+      - name: Upload accounts
         uses: actions/upload-artifact@v4
         if: always()
         with:
