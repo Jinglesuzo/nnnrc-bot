@@ -12,9 +12,8 @@ import os
 import sys
 
 class NigerianAccountBot:
-    def __init__(self, start_code=101177):
-        self.start_code = start_code
-        self.current_code = start_code  # Start from 101177
+    def __init__(self, start_code=100735):
+        self.current_code = start_code
         self.step_size = 40
         self.created_accounts = []
         self.account_counter = 0
@@ -294,7 +293,6 @@ class NigerianAccountBot:
                 self.logout()
                 self.go_to_register_page()
                 
-                # ← ADD +40 HERE
                 self.current_code = code + self.step_size
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
@@ -397,11 +395,11 @@ class NigerianAccountBot:
         print(f"   💾 Saved to accounts.csv")
 
 # ============================================
-# RUN THE BOT (START: 101177, STEP: +40)
+# RUN THE BOT (START: 0100735, STEP: +40)
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 1  # Create 1 account per manual run
+NUM_ACCOUNTS = 1
 
-bot = NigerianAccountBot(start_code=101339)  # ← START FROM 101177
+bot = NigerianAccountBot(start_code=101500)  # 0100735
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
