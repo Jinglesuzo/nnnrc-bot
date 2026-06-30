@@ -1,7 +1,7 @@
 name: NNNRC Bot
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
 
 jobs:
   run-bot:
@@ -34,3 +34,10 @@ jobs:
         with:
           name: accounts
           path: accounts.csv
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: "*.png"
