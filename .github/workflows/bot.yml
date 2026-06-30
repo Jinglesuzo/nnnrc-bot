@@ -1,7 +1,9 @@
 name: NNNRC Bot
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"  # Runs every 5 minutes
+  workflow_dispatch:        # Manual trigger
 
 jobs:
   run-bot:
