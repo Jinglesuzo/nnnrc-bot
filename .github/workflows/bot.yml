@@ -29,6 +29,8 @@ jobs:
 
       - name: Run bot
         run: python bot.py
+        id: bot_run
+        continue-on-error: true
 
       - name: Upload accounts
         uses: actions/upload-artifact@v4
@@ -36,6 +38,13 @@ jobs:
         with:
           name: accounts
           path: accounts.csv
+
+      - name: Upload progress
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: progress
+          path: progress.json
 
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
