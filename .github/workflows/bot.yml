@@ -1,9 +1,7 @@
 name: NNNRC Bot
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"  # Runs every 5 minutes
-  workflow_dispatch:        # Manual trigger
+  workflow_dispatch:  # Manual trigger only
 
 jobs:
   run-bot:
@@ -29,8 +27,6 @@ jobs:
 
       - name: Run bot
         run: python bot.py
-        id: bot_run
-        continue-on-error: true
 
       - name: Upload accounts
         uses: actions/upload-artifact@v4
@@ -38,17 +34,3 @@ jobs:
         with:
           name: accounts
           path: accounts.csv
-
-      - name: Upload progress
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: progress
-          path: progress.json
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots
-          path: "*.png"
