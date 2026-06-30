@@ -10,11 +10,12 @@ import random
 import csv
 import os
 import sys
+import json
 
 class NigerianAccountBot:
-    def __init__(self, start_code=100735):  # 0100735
-        self.current_code = start_code
-        self.step_size = 40  # Increase by 40 each run
+    def __init__(self, start_code=100735):
+        self.start_code = start_code
+        self.step_size = 40
         self.created_accounts = []
         self.account_counter = 0
         self.nigerian_prefixes = ['080', '081', '090', '091', '070', '071']
@@ -23,8 +24,11 @@ class NigerianAccountBot:
         self.last_result = "Waiting to start..."
         self.consecutive_failures = 0
         self.max_failures = 5
-        self.max_retries = 3  # Retry on error
+        self.max_retries = 3
 
+        # Load progress from previous run
+        self.current_code = self.get_last_code()
+        
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -55,6 +59,22 @@ class NigerianAccountBot:
             'confirm_password': "//input[@placeholder='Please confirm your password']",
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
         }
+
+    # === PROGRESS TRACKING ===
+    def get_last_code(self):
+        try:
+            with open('progress.json', 'r') as f:
+                data = json.load(f)
+                return data.get('last_code', self.start_code)
+        except:
+            return self.start_code
+
+    def save_progress(self, code):
+        try:
+            with open('progress.json', 'w') as f:
+                json.dump({'last_code': code}, f)
+        except:
+            pass
 
     def take_screenshot(self, name):
         try:
@@ -96,7 +116,6 @@ class NigerianAccountBot:
             return False
 
     def safe_find_element(self, by, selector, timeout=10):
-        """Safely find element with retry"""
         for attempt in range(self.max_retries):
             try:
                 wait = WebDriverWait(self.driver, timeout)
@@ -144,7 +163,6 @@ class NigerianAccountBot:
             formatted_code = self.format_code(code)
             self.wait_for_page_load()
             
-            # Safe find with retry
             code_field = self.safe_find_element(By.XPATH, self.selectors['invitation_code'])
             if not code_field:
                 print(f"   ❌ Code field not found")
@@ -162,7 +180,6 @@ class NigerianAccountBot:
         try:
             wait = WebDriverWait(self.driver, 10)
             
-            # Try multiple selectors
             selectors = [
                 "//*[contains(text(), 'Register now')]",
                 "//button[contains(text(), 'Register')]",
@@ -181,7 +198,6 @@ class NigerianAccountBot:
                 except:
                     continue
             
-            # Last resort: form submit
             try:
                 form = self.driver.find_element(By.TAG_NAME, "form")
                 self.driver.execute_script("arguments[0].submit();", form)
@@ -201,7 +217,6 @@ class NigerianAccountBot:
         try:
             page_source = self.driver.page_source.lower()
             
-            # SUCCESS indicators
             if "important notice" in page_source:
                 self.last_result = "✅ SUCCESS! Important Notice found"
                 self.take_screenshot("success_important_notice")
@@ -211,12 +226,10 @@ class NigerianAccountBot:
                 self.take_screenshot("success_free_upgrade")
                 return True
             
-            # FAILURE indicators
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
                 self.last_result = "❌ Upgrade message - code failed"
                 return False
             
-            # Other success indicators
             success_words = [
                 "cooperative wealth zone", "deposit principal", "invite newcomers",
                 "wealth center", "wish book", "surprise code", "benefit savings",
@@ -300,7 +313,9 @@ class NigerianAccountBot:
                 self.logout()
                 self.go_to_register_page()
                 
-                self.current_code = code + self.step_size
+                next_code = code + self.step_size
+                self.save_progress(next_code)
+                self.current_code = next_code
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
                 print(f"➡️  Next code: {self.format_code(self.current_code)}")
@@ -308,6 +323,7 @@ class NigerianAccountBot:
 
             print(f"❌ ({self.consecutive_failures}/{self.max_failures} failures)")
             self.current_code = code + self.step_size
+            self.save_progress(self.current_code)
             attempts += 1
             time.sleep(1)
 
@@ -406,5 +422,5 @@ class NigerianAccountBot:
 target_url = "https://nnnrc.com/#/register"
 NUM_ACCOUNTS = 3  # Change to how many accounts you want
 
-bot = NigerianAccountBot(start_code=100735)  # 0100735
+bot = NigerianAccountBot(start_code=100775)  # 0100735
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
