@@ -12,9 +12,9 @@ import os
 import sys
 
 class NigerianAccountBot:
-    def __init__(self, start_code=70300):
+    def __init__(self, start_code=101621):
         self.current_code = start_code
-        self.step_size = 1
+        self.step_size = 1  # ← CHANGED TO +1
         self.created_accounts = []
         self.account_counter = 0
         self.nigerian_prefixes = ['080', '081', '090', '091', '070', '071']
@@ -22,8 +22,8 @@ class NigerianAccountBot:
         self.current_password = None
         self.last_result = "Waiting to start..."
         self.consecutive_failures = 0
-        self.max_failures = 10
-        self.max_retries = 2
+        self.max_failures = 5
+        self.max_retries = 3
 
         options = Options()
         options.add_argument("--headless=new")
@@ -35,7 +35,7 @@ class NigerianAccountBot:
 
         print("🔄 Starting Chrome...")
         try:
-            service = Service('/usr/bin/chromedriver')
+            service = Service('/usr/lib/chromium-browser/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
             print("✅ Chrome started!")
         except Exception as e:
@@ -76,6 +76,7 @@ class NigerianAccountBot:
     def clear_field(self, element):
         try:
             element.click()
+            time.sleep(0.2)
             self.driver.execute_script("arguments[0].value = '';", element)
             element.send_keys(Keys.CONTROL + "a")
             element.send_keys(Keys.DELETE)
@@ -85,22 +86,23 @@ class NigerianAccountBot:
         except:
             return False
 
-    def wait_for_page_load(self, timeout=8):
+    def wait_for_page_load(self, timeout=15):
         try:
             wait = WebDriverWait(self.driver, timeout)
             wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
-            time.sleep(1)
+            time.sleep(2)
             return True
         except:
             return False
 
-    def safe_find_element(self, by, selector, timeout=5):
+    def safe_find_element(self, by, selector, timeout=10):
         for attempt in range(self.max_retries):
             try:
                 wait = WebDriverWait(self.driver, timeout)
                 return wait.until(EC.presence_of_element_located((by, selector)))
-            except:
-                time.sleep(0.3)
+            except Exception as e:
+                print(f"   ⚠️ Attempt {attempt + 1} failed: {e}")
+                time.sleep(1)
                 if attempt == self.max_retries - 1:
                     raise
         return None
@@ -108,7 +110,7 @@ class NigerianAccountBot:
     def fill_form_once(self):
         try:
             self.wait_for_page_load()
-            wait = WebDriverWait(self.driver, 10)
+            wait = WebDriverWait(self.driver, 15)
             
             self.current_phone = self.generate_nigerian_phone()
             self.current_password = self.generate_password()
@@ -129,6 +131,7 @@ class NigerianAccountBot:
             confirm_field.send_keys(self.current_password)
 
             print("✅ Form filled!")
+            self.take_screenshot("after_form_fill")
             return True
 
         except Exception as e:
@@ -155,7 +158,7 @@ class NigerianAccountBot:
 
     def click_register_button(self):
         try:
-            wait = WebDriverWait(self.driver, 5)
+            wait = WebDriverWait(self.driver, 10)
             
             selectors = [
                 "//*[contains(text(), 'Register now')]",
@@ -168,6 +171,7 @@ class NigerianAccountBot:
                 try:
                     button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
                     self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    time.sleep(0.5)
                     self.driver.execute_script("arguments[0].click();", button)
                     print("   ✅ Clicked Register!")
                     return True
@@ -194,14 +198,16 @@ class NigerianAccountBot:
             page_source = self.driver.page_source.lower()
             
             if "important notice" in page_source:
-                self.last_result = "✅ SUCCESS!"
+                self.last_result = "✅ SUCCESS! Important Notice found"
+                self.take_screenshot("success_important_notice")
                 return True
             if "limited-time free upgrade" in page_source:
-                self.last_result = "✅ SUCCESS!"
+                self.last_result = "✅ SUCCESS! Free Upgrade found"
+                self.take_screenshot("success_free_upgrade")
                 return True
             
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
-                self.last_result = "❌ Upgrade message"
+                self.last_result = "❌ Upgrade message - code failed"
                 return False
             
             success_words = [
@@ -212,14 +218,15 @@ class NigerianAccountBot:
             
             for word in success_words:
                 if word in page_source:
-                    self.last_result = "✅ SUCCESS!"
+                    self.last_result = f"✅ Success: '{word}' found"
+                    self.take_screenshot(f"success_{word.replace(' ', '_')}")
                     return True
             
-            self.last_result = "❌ No success"
+            self.last_result = "❌ No success indicators found"
             return False
             
         except Exception as e:
-            self.last_result = f"❌ Error"
+            self.last_result = f"❌ Error: {e}"
             return False
 
     def attempt_creation(self, code):
@@ -227,11 +234,12 @@ class NigerianAccountBot:
             if not self.update_invitation_code(code):
                 return False, None
             
+            time.sleep(0.5)
+            
             if not self.click_register_button():
                 return False, None
             
-            # Fast wait: only 1.5 seconds
-            time.sleep(1.5)
+            time.sleep(4)
             self.wait_for_page_load()
             
             if self.check_success():
@@ -242,8 +250,8 @@ class NigerianAccountBot:
                 }
                 self.created_accounts.append(account_info)
                 self.save_account(account_info)
-                print(f"   ✅✅✅ SUCCESS! Code: {self.format_code(code)}")
-                self.last_result = f"✅ SUCCESS!"
+                print(f"   ✅✅✅ SUCCESS! Account created with code: {self.format_code(code)}")
+                self.last_result = f"✅ SUCCESS! Code {self.format_code(code)} worked!"
                 self.consecutive_failures = 0
                 return True, account_info
             
@@ -251,8 +259,9 @@ class NigerianAccountBot:
             return False, None
             
         except Exception as e:
-            print(f"   ⚠️ Error")
+            print(f"   ⚠️ Error in attempt: {e}")
             self.consecutive_failures += 1
+            time.sleep(3)
             return False, None
 
     def create_one_account(self):
@@ -262,11 +271,11 @@ class NigerianAccountBot:
         self.consecutive_failures = 0
 
         if not self.fill_form_once():
-            print("❌ Could not fill form")
+            print("❌ Could not fill form - skipping this account")
             return False
 
         attempts = 0
-        max_tries = 20
+        max_tries = 10
 
         while attempts < max_tries and self.consecutive_failures < self.max_failures:
             code = self.current_code
@@ -279,83 +288,96 @@ class NigerianAccountBot:
                 print(f"\n✅ ACCOUNT CREATED!")
                 print(f"   📱 Phone: {account['phone']}")
                 print(f"   🔑 Password: {account['password']}")
-                print(f"   🎯 Code: {account['invitation_code']}")
+                print(f"   🎯 Invitation Code: {account['invitation_code']}")
                 
                 self.logout()
                 self.go_to_register_page()
                 
+                # ← ADD +1 HERE (STEP SIZE)
                 self.current_code = code + self.step_size
                 self.account_counter += 1
-                print(f"📊 Accounts: {self.account_counter}")
-                print(f"➡️  Next: {self.format_code(self.current_code)}")
+                print(f"📊 Accounts created: {self.account_counter}")
+                print(f"➡️  Next code: {self.format_code(self.current_code)}")
                 return True
 
-            print(f"❌")
+            print(f"❌ ({self.consecutive_failures}/{self.max_failures} failures)")
             self.current_code = code + self.step_size
             attempts += 1
-            
-            # Fast delay: 0.3 seconds
-            time.sleep(0.3)
+            time.sleep(1)
 
-        print(f"❌ Could not find working code")
+        if self.consecutive_failures >= self.max_failures:
+            print(f"❌ Too many failures ({self.max_failures}) - skipping this account")
+        else:
+            print(f"❌ Could not find working code after {max_tries} attempts")
         return False
 
     def logout(self):
         try:
+            print(f"   🔄 Logging out...")
             self.driver.get("https://nnnrc.com/#/logout")
-            time.sleep(1)
+            self.wait_for_page_load()
+            time.sleep(2)
+            print(f"   ✅ Logged out")
             return True
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Logout error: {e}")
             return False
 
     def go_to_register_page(self):
         try:
             self.driver.get("https://nnnrc.com/#/register")
             self.wait_for_page_load()
-            time.sleep(1)
+            time.sleep(2)
+            print("   ✅ Back to register page")
             return True
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Navigation error: {e}")
             return False
 
     def run(self, url, num_accounts=1):
         print("="*60)
-        print("🇳🇬 FAST ACCOUNT CREATION BOT")
-        print(f"Starting: {self.format_code(self.current_code)}")
-        print(f"Step: +{self.step_size}")
-        print(f"Target: {num_accounts} accounts")
+        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT")
+        print(f"Starting code: {self.format_code(self.current_code)}")
+        print(f"Step size: +{self.step_size}")
+        print(f"Target: {num_accounts} accounts this run")
         print("="*60)
 
         try:
             self.driver.get(url)
             self.wait_for_page_load()
             print("✅ Website loaded")
-            time.sleep(1)
+            self.take_screenshot("page_loaded")
+            time.sleep(3)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
             return
 
         for i in range(num_accounts):
-            print(f"\n🎯 Account #{i + 1} of {num_accounts}")
+            print(f"\n🎯 Creating Account #{i + 1} of {num_accounts}")
             success = self.create_one_account()
 
             if not success:
-                print(f"⚠️ Failed")
+                print(f"⚠️ Failed to create account #{i + 1}")
                 self.driver.get("https://nnnrc.com/#/register")
                 self.wait_for_page_load()
-                time.sleep(1)
+                time.sleep(2)
 
             if i < num_accounts - 1:
-                time.sleep(random.uniform(1, 2))
+                delay = random.uniform(3, 6)
+                print(f"⏳ Waiting {delay:.1f}s before next account...")
+                time.sleep(delay)
 
         print("\n" + "="*60)
         print("📊 FINAL SUMMARY")
-        print(f"Total accounts: {len(self.created_accounts)}")
+        print(f"Total accounts created: {len(self.created_accounts)}")
+        print("\nAccount details:")
         for idx, acc in enumerate(self.created_accounts, 1):
-            print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']}")
+            print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
-        print(f"➡️  Next code: {self.format_code(self.current_code)}")
+        print(f"➡️  Next run will start from: {self.format_code(self.current_code)}")
         print("="*60)
         
+        self.take_screenshot("final")
         self.driver.quit()
 
     def save_account(self, account):
@@ -371,14 +393,14 @@ class NigerianAccountBot:
                 account['invitation_code'],
                 time.ctime()
             ])
-        print(f"   💾 Saved")
+        print(f"   💾 Saved to accounts.csv")
 
 # ============================================
-# RUN THE BOT (START: 0070300, STEP: +1)
+# RUN THE BOT (START: 0101621, STEP: +1)
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 2
+NUM_ACCOUNTS = 5
 
-bot = NigerianAccountBot(start_code=101836)  # 0070300
+bot = NigerianAccountBot(start_code=101836)  # ← START FROM 0101621
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
