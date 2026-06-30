@@ -12,7 +12,7 @@ import os
 import sys
 
 class NigerianAccountBot:
-    def __init__(self, start_code=810000):
+    def __init__(self, start_code=100543):
         self.current_code = start_code
         self.created_accounts = []
         self.account_counter = 0
@@ -69,7 +69,7 @@ class NigerianAccountBot:
         return ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
     def format_code(self, code):
-        return str(code).zfill(7)  # ← 7 digits!
+        return str(code).zfill(7)  # 7 digits
 
     def clear_field(self, element):
         try:
@@ -358,11 +358,11 @@ class NigerianAccountBot:
         print(f"   💾 Saved to accounts.csv")
 
 # ============================================
-# RUN THE BOT (7-DIGIT CODES FROM 0810000)
+# RUN THE BOT (7-DIGIT CODES FROM 0100543)
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
 NUM_ACCOUNTS = 5  # Change to how many accounts you want
 
-bot = NigerianAccountBot(start_code=11180)  # 0810000 = 810000
+bot = NigerianAccountBot(start_code=100543)  # ← 0100543 = 100543
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
