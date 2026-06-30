@@ -356,12 +356,12 @@ class NigerianAccountBot:
             print(f"   ⚠️ Navigation error: {e}")
             return False
 
-    def run(self, url, num_accounts=3):
+    def run(self, url, num_accounts=1):
         print("="*60)
         print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT")
-        print(f"Starting code: {self.format_code(self.current_code)}")
-        print(f"Step size: +{self.step_size}")
-        print(f"Target: {num_accounts} accounts")
+        print(f"Current code: {self.format_code(self.current_code)}")
+        print(f"Step size: +{self.step_size} (next run will be +40)")
+        print(f"Target: {num_accounts} accounts this run")
         print("="*60)
 
         try:
@@ -396,6 +396,8 @@ class NigerianAccountBot:
         for idx, acc in enumerate(self.created_accounts, 1):
             print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
+        print(f"➡️  Next run will start from: {self.format_code(self.current_code)}")
+        print("="*60)
         
         self.take_screenshot("final")
         self.driver.quit()
@@ -420,7 +422,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 3  # Change to how many accounts you want
+NUM_ACCOUNTS = 3  # Create 1 account per manual run
 
-bot = NigerianAccountBot(start_code=100976)  # 0100735
+bot = NigerianAccountBot(start_code=101177)  # 0100735
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
