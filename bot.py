@@ -5,16 +5,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 import time
 import random
 import csv
 import os
 import sys
+import string  # ← ADDED FOR HUMAN-LIKE PASSWORDS
 
 class NigerianAccountBot:
-    def __init__(self, start_code=101621):
+    def __init__(self, start_code=7000100):
         self.current_code = start_code
-        self.step_size = 1  # ← CHANGED TO +1
+        self.step_size = 1
         self.created_accounts = []
         self.account_counter = 0
         self.nigerian_prefixes = ['080', '081', '090', '091', '070', '071']
@@ -56,6 +58,42 @@ class NigerianAccountBot:
             'invitation_code': "//input[@placeholder='Please enter the invitation code']",
         }
 
+    # === HUMAN BEHAVIOR FUNCTIONS ===
+
+    def human_type(self, element, text):
+        """Type like a human with random delays between keystrokes"""
+        for char in text:
+            element.send_keys(char)
+            time.sleep(random.uniform(0.05, 0.25))
+
+    def human_click(self, element):
+        """Click like a human with natural movement"""
+        try:
+            actions = ActionChains(self.driver)
+            actions.move_to_element(element).perform()
+            time.sleep(random.uniform(0.2, 0.6))
+            element.click()
+            return True
+        except:
+            self.driver.execute_script("arguments[0].click();", element)
+            return True
+
+    def random_pause(self, min_sec=0.5, max_sec=2.0):
+        """Random pause to simulate human thinking"""
+        time.sleep(random.uniform(min_sec, max_sec))
+
+    def random_scroll(self):
+        """Scroll the page randomly like a human reading"""
+        try:
+            scroll_amount = random.randint(100, 500)
+            self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+            time.sleep(random.uniform(0.2, 0.5))
+            if random.random() > 0.5:
+                scroll_back = random.randint(50, 200)
+                self.driver.execute_script(f"window.scrollBy(0, -{scroll_back});")
+        except:
+            pass
+
     def take_screenshot(self, name):
         try:
             self.driver.save_screenshot(f"{name}.png")
@@ -68,7 +106,10 @@ class NigerianAccountBot:
         return prefix + number
 
     def generate_password(self):
-        return ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        """Generate a random human-like password (6-10 chars, mixed case + numbers)"""
+        length = random.randint(6, 10)
+        characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+        return ''.join(random.choices(characters, k=length))
 
     def format_code(self, code):
         return str(code).zfill(7)
@@ -76,7 +117,7 @@ class NigerianAccountBot:
     def clear_field(self, element):
         try:
             element.click()
-            time.sleep(0.2)
+            time.sleep(random.uniform(0.1, 0.3))
             self.driver.execute_script("arguments[0].value = '';", element)
             element.send_keys(Keys.CONTROL + "a")
             element.send_keys(Keys.DELETE)
@@ -90,7 +131,7 @@ class NigerianAccountBot:
         try:
             wait = WebDriverWait(self.driver, timeout)
             wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
-            time.sleep(2)
+            self.random_pause(0.5, 1.5)
             return True
         except:
             return False
@@ -118,17 +159,28 @@ class NigerianAccountBot:
             print(f"\n📱 Phone: {self.current_phone}")
             print(f"🔒 Password: {self.current_password}")
 
+            # === HUMAN: Random scroll before filling ===
+            self.random_scroll()
+            self.random_pause(0.5, 1.5)
+
             phone_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['phone'])))
             self.clear_field(phone_field)
-            phone_field.send_keys(self.current_phone)
+            self.human_type(phone_field, self.current_phone)
+            self.random_pause(0.3, 0.8)
 
             password_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['password'])))
             self.clear_field(password_field)
-            password_field.send_keys(self.current_password)
+            self.human_type(password_field, self.current_password)
+            self.random_pause(0.3, 0.8)
 
             confirm_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['confirm_password'])))
             self.clear_field(confirm_field)
-            confirm_field.send_keys(self.current_password)
+            self.human_type(confirm_field, self.current_password)
+            self.random_pause(0.3, 0.8)
+
+            # === HUMAN: Random scroll after filling ===
+            self.random_scroll()
+            self.random_pause(0.5, 1.5)
 
             print("✅ Form filled!")
             self.take_screenshot("after_form_fill")
@@ -143,14 +195,18 @@ class NigerianAccountBot:
             formatted_code = self.format_code(code)
             self.wait_for_page_load()
             
+            self.random_pause(0.5, 1.5)
+            
             code_field = self.safe_find_element(By.XPATH, self.selectors['invitation_code'])
             if not code_field:
                 print(f"   ❌ Code field not found")
                 return False
             
             self.clear_field(code_field)
-            code_field.send_keys(formatted_code)
+            self.human_type(code_field, formatted_code)
             print(f"   ✅ Code: {formatted_code}")
+            
+            self.random_pause(0.3, 0.8)
             return True
         except Exception as e:
             print(f"   ❌ Failed to update code: {e}")
@@ -158,6 +214,10 @@ class NigerianAccountBot:
 
     def click_register_button(self):
         try:
+            # === HUMAN: Random scroll before clicking ===
+            self.random_scroll()
+            self.random_pause(0.5, 1.5)
+            
             wait = WebDriverWait(self.driver, 10)
             
             selectors = [
@@ -170,9 +230,7 @@ class NigerianAccountBot:
             for selector in selectors:
                 try:
                     button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-                    time.sleep(0.5)
-                    self.driver.execute_script("arguments[0].click();", button)
+                    self.human_click(button)
                     print("   ✅ Clicked Register!")
                     return True
                 except:
@@ -195,6 +253,8 @@ class NigerianAccountBot:
 
     def check_success(self):
         try:
+            self.random_pause(1.0, 2.5)
+            
             page_source = self.driver.page_source.lower()
             
             if "important notice" in page_source:
@@ -234,12 +294,12 @@ class NigerianAccountBot:
             if not self.update_invitation_code(code):
                 return False, None
             
-            time.sleep(0.5)
+            self.random_pause(0.5, 1.5)
             
             if not self.click_register_button():
                 return False, None
             
-            time.sleep(4)
+            self.random_pause(2.0, 4.0)
             self.wait_for_page_load()
             
             if self.check_success():
@@ -270,6 +330,8 @@ class NigerianAccountBot:
         print(f"Starting code: {self.format_code(self.current_code)}")
         self.consecutive_failures = 0
 
+        self.random_pause(1.0, 3.0)
+
         if not self.fill_form_once():
             print("❌ Could not fill form - skipping this account")
             return False
@@ -285,15 +347,22 @@ class NigerianAccountBot:
 
             if success:
                 print(f"✅")
-                print(f"\n✅ ACCOUNT CREATED!")
-                print(f"   📱 Phone: {account['phone']}")
-                print(f"   🔑 Password: {account['password']}")
-                print(f"   🎯 Invitation Code: {account['invitation_code']}")
+                
+                # === COPY-PASTE READY OUTPUT ===
+                print("\n" + "="*60)
+                print("✅ ACCOUNT CREATED - COPY BELOW:")
+                print("="*60)
+                print(f"📱 Phone: {account['phone']}")
+                print(f"🔑 Password: {account['password']}")
+                print(f"🎯 Code: {account['invitation_code']}")
+                print("="*60)
+                print("\n📋 COPY THIS LINE:")
+                print(f"{account['phone']} | {account['password']} | {account['invitation_code']}")
+                print("="*60)
                 
                 self.logout()
                 self.go_to_register_page()
                 
-                # ← ADD +1 HERE (STEP SIZE)
                 self.current_code = code + self.step_size
                 self.account_counter += 1
                 print(f"📊 Accounts created: {self.account_counter}")
@@ -303,7 +372,7 @@ class NigerianAccountBot:
             print(f"❌ ({self.consecutive_failures}/{self.max_failures} failures)")
             self.current_code = code + self.step_size
             attempts += 1
-            time.sleep(1)
+            self.random_pause(0.5, 2.0)
 
         if self.consecutive_failures >= self.max_failures:
             print(f"❌ Too many failures ({self.max_failures}) - skipping this account")
@@ -314,9 +383,10 @@ class NigerianAccountBot:
     def logout(self):
         try:
             print(f"   🔄 Logging out...")
+            self.random_pause(0.5, 1.5)
             self.driver.get("https://nnnrc.com/#/logout")
             self.wait_for_page_load()
-            time.sleep(2)
+            time.sleep(random.uniform(1.0, 2.0))
             print(f"   ✅ Logged out")
             return True
         except Exception as e:
@@ -327,16 +397,16 @@ class NigerianAccountBot:
         try:
             self.driver.get("https://nnnrc.com/#/register")
             self.wait_for_page_load()
-            time.sleep(2)
+            time.sleep(random.uniform(1.0, 2.0))
             print("   ✅ Back to register page")
             return True
         except Exception as e:
             print(f"   ⚠️ Navigation error: {e}")
             return False
 
-    def run(self, url, num_accounts=1):
+    def run(self, url, num_accounts=5):
         print("="*60)
-        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT")
+        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT (HUMAN MODE)")
         print(f"Starting code: {self.format_code(self.current_code)}")
         print(f"Step size: +{self.step_size}")
         print(f"Target: {num_accounts} accounts this run")
@@ -347,7 +417,7 @@ class NigerianAccountBot:
             self.wait_for_page_load()
             print("✅ Website loaded")
             self.take_screenshot("page_loaded")
-            time.sleep(3)
+            self.random_pause(1.0, 3.0)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
             return
@@ -360,19 +430,28 @@ class NigerianAccountBot:
                 print(f"⚠️ Failed to create account #{i + 1}")
                 self.driver.get("https://nnnrc.com/#/register")
                 self.wait_for_page_load()
-                time.sleep(2)
+                self.random_pause(1.0, 2.0)
 
             if i < num_accounts - 1:
-                delay = random.uniform(3, 6)
-                print(f"⏳ Waiting {delay:.1f}s before next account...")
+                delay = random.uniform(5.0, 10.0)
+                print(f"⏳ Human-like pause {delay:.1f}s before next account...")
                 time.sleep(delay)
 
         print("\n" + "="*60)
         print("📊 FINAL SUMMARY")
         print(f"Total accounts created: {len(self.created_accounts)}")
-        print("\nAccount details:")
+        
+        # === FINAL COPY-PASTE SUMMARY ===
+        print("\n" + "="*60)
+        print("📋 COPY ALL ACCOUNTS BELOW:")
+        print("="*60)
         for idx, acc in enumerate(self.created_accounts, 1):
-            print(f"   #{idx}: Code: {acc['invitation_code']} | Phone: {acc['phone']} | Password: {acc['password']}")
+            print(f"{idx}. {acc['phone']} | {acc['password']} | {acc['invitation_code']}")
+        print("="*60)
+        
+        print("\n📱 Login Credentials:")
+        for idx, acc in enumerate(self.created_accounts, 1):
+            print(f"   #{idx} → Phone: {acc['phone']} | Password: {acc['password']}")
         print("="*60)
         print(f"➡️  Next run will start from: {self.format_code(self.current_code)}")
         print("="*60)
@@ -396,11 +475,11 @@ class NigerianAccountBot:
         print(f"   💾 Saved to accounts.csv")
 
 # ============================================
-# RUN THE BOT (START: 0101621, STEP: +1)
+# RUN THE BOT (START: 7000100, STEP: +1)
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 3
+NUM_ACCOUNTS = 5
 
-bot = NigerianAccountBot(start_code=102512)  # ← START FROM 0101621
+bot = NigerianAccountBot(start_code=102512)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
