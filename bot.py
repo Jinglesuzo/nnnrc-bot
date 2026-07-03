@@ -13,6 +13,22 @@ import os
 import sys
 import string
 
+# === WORD LIST FOR HUMAN-LIKE PASSWORDS ===
+COMMON_WORDS = [
+    'apple', 'banana', 'cherry', 'dragon', 'eagle', 'falcon', 'garden', 'honey',
+    'island', 'jungle', 'knight', 'lionel', 'magic', 'noble', 'ocean', 'piano',
+    'queen', 'river', 'star', 'tiger', 'uncle', 'victor', 'water', 'xenon',
+    'yellow', 'zebra', 'angel', 'blaze', 'cloud', 'dream', 'eagle', 'flame',
+    'grace', 'heart', 'ivory', 'joker', 'king', 'lunar', 'moon', 'night',
+    'orbit', 'peace', 'rain', 'storm', 'titan', 'ultra', 'vivid', 'whale',
+    'crystal', 'diamond', 'emerald', 'forest', 'golden', 'hero', 'iron',
+    'jade', 'koala', 'lemon', 'mango', 'nova', 'opal', 'pearl', 'ruby',
+    'sapphire', 'topaz', 'amber', 'bronze', 'copper', 'denver', 'elite',
+    'frost', 'glacier', 'hunter', 'indigo', 'jupiter', 'karma', 'legend',
+    'mystic', 'neon', 'oracle', 'phoenix', 'quantum', 'radiant', 'shadow',
+    'thunder', 'unity', 'valkyrie', 'wisdom', 'zenith'
+]
+
 class NigerianAccountBot:
     def __init__(self, start_code=7000100):
         self.current_code = start_code
@@ -37,14 +53,12 @@ class NigerianAccountBot:
 
         print("🔄 Starting Chrome...")
         try:
-            # Use pre-installed Chrome on GitHub runner
             options.binary_location = "/usr/bin/google-chrome"
             service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
             print("✅ Chrome started (pre-installed)!")
         except Exception as e:
             print(f"❌ Failed with pre-installed: {e}")
-            # Fallback to webdriver-manager
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
                 service = Service(ChromeDriverManager().install())
@@ -109,10 +123,15 @@ class NigerianAccountBot:
         return prefix + number
 
     def generate_password(self):
-        """Generate a random human-like password (6-10 chars, mixed case + numbers)"""
-        length = random.randint(6, 10)
-        characters = string.ascii_letters + string.digits
-        return ''.join(random.choices(characters, k=length))
+        """Generate a human-like password: word + number (e.g., 'apple123', 'tiger456')"""
+        # Pick a random word
+        word = random.choice(COMMON_WORDS)
+        # Add random number at the end (1-3 digits)
+        number = random.randint(10, 999)
+        # Randomly capitalize first letter sometimes
+        if random.random() > 0.5:
+            word = word.capitalize()
+        return f"{word}{number}"
 
     def format_code(self, code):
         return str(code).zfill(7)
@@ -476,7 +495,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 2
+NUM_ACCOUNTS = 3
 
-bot = NigerianAccountBot(start_code=102544)
+bot = NigerianAccountBot(start_code=5244557)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
