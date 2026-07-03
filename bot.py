@@ -11,7 +11,7 @@ import random
 import csv
 import os
 import sys
-import string  # ← ADDED FOR HUMAN-LIKE PASSWORDS
+import string
 
 class NigerianAccountBot:
     def __init__(self, start_code=7000100):
@@ -37,11 +37,14 @@ class NigerianAccountBot:
 
         print("🔄 Starting Chrome...")
         try:
-            service = Service('/usr/lib/chromium-browser/chromedriver')
+            # Use pre-installed Chrome on GitHub runner
+            options.binary_location = "/usr/bin/google-chrome"
+            service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started!")
+            print("✅ Chrome started (pre-installed)!")
         except Exception as e:
-            print(f"❌ Failed: {e}")
+            print(f"❌ Failed with pre-installed: {e}")
+            # Fallback to webdriver-manager
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
                 service = Service(ChromeDriverManager().install())
@@ -108,7 +111,7 @@ class NigerianAccountBot:
     def generate_password(self):
         """Generate a random human-like password (6-10 chars, mixed case + numbers)"""
         length = random.randint(6, 10)
-        characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+        characters = string.ascii_letters + string.digits
         return ''.join(random.choices(characters, k=length))
 
     def format_code(self, code):
@@ -159,7 +162,6 @@ class NigerianAccountBot:
             print(f"\n📱 Phone: {self.current_phone}")
             print(f"🔒 Password: {self.current_password}")
 
-            # === HUMAN: Random scroll before filling ===
             self.random_scroll()
             self.random_pause(0.5, 1.5)
 
@@ -178,7 +180,6 @@ class NigerianAccountBot:
             self.human_type(confirm_field, self.current_password)
             self.random_pause(0.3, 0.8)
 
-            # === HUMAN: Random scroll after filling ===
             self.random_scroll()
             self.random_pause(0.5, 1.5)
 
@@ -214,7 +215,6 @@ class NigerianAccountBot:
 
     def click_register_button(self):
         try:
-            # === HUMAN: Random scroll before clicking ===
             self.random_scroll()
             self.random_pause(0.5, 1.5)
             
@@ -347,8 +347,6 @@ class NigerianAccountBot:
 
             if success:
                 print(f"✅")
-                
-                # === COPY-PASTE READY OUTPUT ===
                 print("\n" + "="*60)
                 print("✅ ACCOUNT CREATED - COPY BELOW:")
                 print("="*60)
@@ -441,7 +439,6 @@ class NigerianAccountBot:
         print("📊 FINAL SUMMARY")
         print(f"Total accounts created: {len(self.created_accounts)}")
         
-        # === FINAL COPY-PASTE SUMMARY ===
         print("\n" + "="*60)
         print("📋 COPY ALL ACCOUNTS BELOW:")
         print("="*60)
@@ -479,7 +476,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 1
+NUM_ACCOUNTS = 3
 
 bot = NigerianAccountBot(start_code=102537)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
