@@ -114,6 +114,7 @@ class NigerianAccountBot:
     def take_screenshot(self, name):
         try:
             self.driver.save_screenshot(f"{name}.png")
+            print(f"   📸 Screenshot: {name}.png")
         except:
             pass
 
@@ -124,11 +125,8 @@ class NigerianAccountBot:
 
     def generate_password(self):
         """Generate a human-like password: word + number (e.g., 'apple123', 'tiger456')"""
-        # Pick a random word
         word = random.choice(COMMON_WORDS)
-        # Add random number at the end (1-3 digits)
         number = random.randint(10, 999)
-        # Randomly capitalize first letter sometimes
         if random.random() > 0.5:
             word = word.capitalize()
         return f"{word}{number}"
@@ -270,25 +268,213 @@ class NigerianAccountBot:
             print(f"   ❌ Register click error: {e}")
             return False
 
+    # ============================================
+    # POPUP HANDLING METHODS
+    # ============================================
+
+    def click_news_button(self):
+        """Click the NEWS button to trigger the welcome popup"""
+        try:
+            news_selectors = [
+                "//*[contains(text(), 'NEWS')]",
+                "//*[contains(text(), 'News')]",
+                "//button[contains(text(), 'NEWS')]",
+                "//*[contains(@class, 'news')]",
+                "//*[contains(@id, 'news')]",
+                "//div[contains(text(), 'NEWS')]",
+                "//span[contains(text(), 'NEWS')]"
+            ]
+            
+            for selector in news_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            self.human_click(element)
+                            print("   📰 Clicked NEWS button")
+                            time.sleep(1.5)
+                            return True
+                except:
+                    continue
+            
+            # Fallback: click any visible green button
+            try:
+                green_buttons = self.driver.find_elements(By.XPATH, "//button[contains(@style, 'green')] | //*[contains(@class, 'green')]")
+                for btn in green_buttons:
+                    if btn.is_displayed():
+                        self.human_click(btn)
+                        print("   📰 Clicked green button (NEWS)")
+                        time.sleep(1.5)
+                        return True
+            except:
+                pass
+            
+            print("   ⚠️ Could not find NEWS button")
+            return False
+            
+        except Exception as e:
+            print(f"   ⚠️ Error clicking NEWS: {e}")
+            return False
+
+    def close_welcome_popup(self):
+        """Close the 'Welcome to join NRC' popup"""
+        try:
+            welcome_selectors = [
+                "//*[contains(text(), 'Welcome to join NRC')]",
+                "//*[contains(text(), 'Thank you for your trust')]",
+                "//*[contains(@class, 'welcome')]",
+                "//button[contains(text(), 'Got it')]",
+                "//button[contains(text(), 'OK')]",
+                "//button[contains(text(), 'Close')]",
+                "//*[contains(@class, 'modal-close')]",
+                "//*[text()='×']"
+            ]
+            
+            for selector in welcome_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed():
+                            self.human_click(element)
+                            print("   🚫 Closed Welcome popup")
+                            time.sleep(0.5)
+                            return True
+                except:
+                    continue
+            return False
+        except Exception as e:
+            print(f"   ⚠️ Could not close welcome popup: {e}")
+            return False
+
+    def close_remaining_popups(self):
+        """Close any remaining popups or ads"""
+        try:
+            close_selectors = [
+                "//*[contains(@class, 'close')]",
+                "//*[contains(@class, 'modal-close')]",
+                "//*[text()='×']",
+                "//*[text()='✕']",
+                "//button[contains(@class, 'btn-close')]",
+                "//*[contains(@class, 'ad-close')]"
+            ]
+            
+            closed = 0
+            for selector in close_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            self.human_click(element)
+                            closed += 1
+                            time.sleep(0.3)
+                except:
+                    continue
+            
+            if closed > 0:
+                print(f"   🚫 Closed {closed} remaining popup(s)")
+            return True
+        except:
+            return False
+
+    def handle_success_popups(self):
+        """Complete flow for handling success popups"""
+        print("   📋 Handling success popups...")
+        
+        # Step 1: Click NEWS button
+        if self.click_news_button():
+            # Step 2: Close Welcome popup
+            self.close_welcome_popup()
+            
+            # Step 3: Close any remaining popups
+            self.close_remaining_popups()
+            
+            print("   ✅ All popups handled")
+            return True
+        else:
+            print("   ⚠️ Could not find NEWS button, skipping popup handling")
+            return False
+
+    # ============================================
+    # TASK BUTTON AND LOGOUT METHODS
+    # ============================================
+
+    def click_task_tab(self):
+        """Click the Task tab at the bottom"""
+        try:
+            task_selectors = [
+                "//*[contains(text(), 'Task')]",
+                "//*[contains(text(), 'task')]",
+                "//*[contains(@class, 'task')]",
+                "//button[contains(text(), 'Task')]",
+                "//div[contains(text(), 'Task')]",
+                "//span[contains(text(), 'Task')]",
+                "//*[@id='task']",
+                "//*[contains(@class, 'tab-task')]"
+            ]
+            
+            for selector in task_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            self.human_click(element)
+                            print("   📋 Clicked Task tab")
+                            time.sleep(1)
+                            return True
+                except:
+                    continue
+            
+            print("   ⚠️ Could not find Task tab")
+            return False
+            
+        except Exception as e:
+            print(f"   ⚠️ Error clicking Task: {e}")
+            return False
+
     def check_success(self):
         try:
             self.random_pause(1.0, 2.5)
             
             page_source = self.driver.page_source.lower()
             
+            # CHECK FOR SUCCESS - Important Notice is the key indicator
             if "important notice" in page_source:
                 self.last_result = "✅ SUCCESS! Important Notice found"
-                self.take_screenshot("success_important_notice")
-                return True
-            if "limited-time free upgrade" in page_source:
-                self.last_result = "✅ SUCCESS! Free Upgrade found"
-                self.take_screenshot("success_free_upgrade")
+                self.take_screenshot("01_success_important_notice")
+                
+                # === HANDLE POPUPS (NEWS → Welcome → Close) ===
+                self.handle_success_popups()
+                
+                # === CLICK TASK TAB ===
+                self.click_task_tab()
+                self.take_screenshot("02_after_task_click")
+                
                 return True
             
+            # Check for other success indicators
+            if "welcome to join nrc" in page_source:
+                self.last_result = "✅ SUCCESS! Welcome found"
+                self.take_screenshot("01_success_welcome")
+                self.handle_success_popups()
+                self.click_task_tab()
+                self.take_screenshot("02_after_task_click")
+                return True
+            
+            if "cooperative wealth zone" in page_source:
+                self.last_result = "✅ SUCCESS! Dashboard found"
+                self.take_screenshot("01_success_dashboard")
+                self.handle_success_popups()
+                self.click_task_tab()
+                self.take_screenshot("02_after_task_click")
+                return True
+            
+            # CHECK FOR FAILURE
             if "please upgrade your level" in page_source or "upgrade your level" in page_source:
                 self.last_result = "❌ Upgrade message - code failed"
+                self.take_screenshot("01_failure_upgrade")
                 return False
             
+            # OTHER SUCCESS INDICATORS
             success_words = [
                 "cooperative wealth zone", "deposit principal", "invite newcomers",
                 "wealth center", "wish book", "surprise code", "benefit savings",
@@ -298,14 +484,19 @@ class NigerianAccountBot:
             for word in success_words:
                 if word in page_source:
                     self.last_result = f"✅ Success: '{word}' found"
-                    self.take_screenshot(f"success_{word.replace(' ', '_')}")
+                    self.take_screenshot(f"01_success_{word.replace(' ', '_')}")
+                    self.handle_success_popups()
+                    self.click_task_tab()
+                    self.take_screenshot("02_after_task_click")
                     return True
             
             self.last_result = "❌ No success indicators found"
+            self.take_screenshot("01_no_success")
             return False
             
         except Exception as e:
             self.last_result = f"❌ Error: {e}"
+            self.take_screenshot("01_error")
             return False
 
     def attempt_creation(self, code):
@@ -332,6 +523,10 @@ class NigerianAccountBot:
                 print(f"   ✅✅✅ SUCCESS! Account created with code: {self.format_code(code)}")
                 self.last_result = f"✅ SUCCESS! Code {self.format_code(code)} worked!"
                 self.consecutive_failures = 0
+                
+                # === TAKE FINAL SCREENSHOT ===
+                self.take_screenshot("03_final_dashboard")
+                
                 return True, account_info
             
             self.consecutive_failures += 1
@@ -339,6 +534,7 @@ class NigerianAccountBot:
             
         except Exception as e:
             print(f"   ⚠️ Error in attempt: {e}")
+            self.take_screenshot("01_error")
             self.consecutive_failures += 1
             time.sleep(3)
             return False, None
@@ -405,6 +601,7 @@ class NigerianAccountBot:
             self.wait_for_page_load()
             time.sleep(random.uniform(1.0, 2.0))
             print(f"   ✅ Logged out")
+            self.take_screenshot("04_logged_out")
             return True
         except Exception as e:
             print(f"   ⚠️ Logout error: {e}")
@@ -433,7 +630,7 @@ class NigerianAccountBot:
             self.driver.get(url)
             self.wait_for_page_load()
             print("✅ Website loaded")
-            self.take_screenshot("page_loaded")
+            self.take_screenshot("00_page_loaded")
             self.random_pause(1.0, 3.0)
         except Exception as e:
             print(f"❌ Failed to load: {e}")
@@ -448,6 +645,7 @@ class NigerianAccountBot:
                 self.driver.get("https://nnnrc.com/#/register")
                 self.wait_for_page_load()
                 self.random_pause(1.0, 2.0)
+                self.take_screenshot("05_recovery")
 
             if i < num_accounts - 1:
                 delay = random.uniform(5.0, 10.0)
@@ -472,7 +670,7 @@ class NigerianAccountBot:
         print(f"➡️  Next run will start from: {self.format_code(self.current_code)}")
         print("="*60)
         
-        self.take_screenshot("final")
+        self.take_screenshot("99_final_summary")
         self.driver.quit()
 
     def save_account(self, account):
@@ -495,7 +693,7 @@ class NigerianAccountBot:
 # ============================================
 
 target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 3
+NUM_ACCOUNTS = 1
 
-bot = NigerianAccountBot(start_code=5100015)
+bot = NigerianAccountBot(start_code=50420)
 bot.run(target_url, num_accounts=NUM_ACCOUNTS)
