@@ -90,6 +90,22 @@ class NRCBot:
         time.sleep(0.3)
         self.driver.execute_script("arguments[0].click();", element)
 
+    def scroll_down(self, amount=250):
+        try:
+            self.driver.execute_script(f"window.scrollBy(0, {amount});")
+            time.sleep(0.3)
+            return True
+        except:
+            return False
+
+    def scroll_up(self, amount=150):
+        try:
+            self.driver.execute_script(f"window.scrollBy(0, -{amount});")
+            time.sleep(0.3)
+            return True
+        except:
+            return False
+
     def show_password(self):
         try:
             eye_selectors = [
@@ -153,19 +169,16 @@ class NRCBot:
         return None
 
     # ============================================
-    # POPUP REMOVAL (Important Notice Only)
+    # POPUP REMOVAL
     # ============================================
 
     def remove_important_notice(self):
-        """Remove the Important Notice popup by clicking NEWS button"""
         try:
-            # Check if Important Notice is present
             notice = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Important Notice')]")
             if notice.is_displayed():
                 print("   📋 Found Important Notice")
                 self.screenshot("important_notice_found")
                 
-                # Click NEWS button
                 try:
                     news_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'NEWS')] | //button[contains(text(), 'NEWS')]")
                     if news_btn.is_displayed() and news_btn.is_enabled():
@@ -174,7 +187,6 @@ class NRCBot:
                         time.sleep(2)
                         self.screenshot("after_news_click")
                         
-                        # Close Welcome popup if appears
                         try:
                             close_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Got it')] | //button[contains(text(), 'OK')] | //*[contains(@class, 'modal-close')] | //*[text()='×']")
                             if close_btn.is_displayed():
@@ -184,7 +196,6 @@ class NRCBot:
                         except:
                             pass
                         
-                        # Close any remaining popups
                         try:
                             close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×']")
                             for btn in close_btns:
@@ -202,11 +213,10 @@ class NRCBot:
         except:
             print("   ℹ️ No Important Notice found")
             return True
-        
         return True
 
     # ============================================
-    # TASKS
+    # TASKS - WITH SCROLLING
     # ============================================
 
     def click_task_tab(self):
@@ -233,11 +243,43 @@ class NRCBot:
         except:
             return False
 
+    def find_all_read_buttons(self):
+        all_buttons = []
+        
+        selectors = [
+            "//button[contains(text(), 'read')]",
+            "//*[contains(text(), 'read')]",
+            "//button[contains(text(), 'Read')]",
+            "//button[contains(@class, 'read')]"
+        ]
+        
+        for scroll_attempt in range(5):
+            for selector in selectors:
+                try:
+                    buttons = self.driver.find_elements(By.XPATH, selector)
+                    for btn in buttons:
+                        if btn.is_displayed() and btn.is_enabled():
+                            if btn not in all_buttons:
+                                all_buttons.append(btn)
+                except:
+                    pass
+            
+            self.scroll_down(300)
+            time.sleep(0.5)
+        
+        self.scroll_up(500)
+        time.sleep(0.5)
+        
+        unique_buttons = []
+        for btn in all_buttons:
+            if btn not in unique_buttons:
+                unique_buttons.append(btn)
+        
+        return unique_buttons
+
     def do_tasks(self):
-        """Click read tasks one by one - each disappears after 20s"""
         print("   📋 Starting tasks...")
         
-        # Click Task tab first
         self.click_task_tab()
         time.sleep(2)
         self.screenshot("tasks_page")
@@ -245,11 +287,9 @@ class NRCBot:
         total_tasks = 0
         max_tasks = 6
         
-        for task_num in range(1, max_tasks + 1):
+        while total_tasks < max_tasks:
             try:
-                # Look for "read" button
-                read_btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
-                # Filter visible and enabled
+                read_btns = self.find_all_read_buttons()
                 visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
                 
                 if not visible_btns:
@@ -257,7 +297,6 @@ class NRCBot:
                     self.screenshot("no_more_tasks")
                     break
                 
-                # Click the first visible read button
                 btn = visible_btns[0]
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
                 time.sleep(0.5)
@@ -267,24 +306,27 @@ class NRCBot:
                 print(f"   📖 Clicked read task {total_tasks}")
                 self.screenshot(f"task_{total_tasks}_clicked")
                 
-                # Wait 20 seconds for task to complete and disappear
                 print(f"   ⏳ Waiting 20 seconds for task {total_tasks} to complete...")
                 time.sleep(20)
                 self.screenshot(f"task_{total_tasks}_done")
                 
-                # Close any popups that appear
                 try:
                     close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×']")
-                    for btn in close_btns:
-                        if btn.is_displayed() and btn.is_enabled():
-                            self.click_element(btn)
+                    for close_btn in close_btns:
+                        if close_btn.is_displayed() and close_btn.is_enabled():
+                            self.click_element(close_btn)
                             time.sleep(0.3)
                 except:
                     pass
                 
+                self.scroll_down(100)
+                time.sleep(0.3)
+                
             except Exception as e:
-                print(f"   ⚠️ Task {task_num} error: {e}")
-                self.screenshot(f"task_{task_num}_error")
+                print(f"   ⚠️ Task error: {e}")
+                self.screenshot(f"task_error")
+                self.scroll_down(200)
+                time.sleep(0.5)
                 continue
         
         print(f"   ✅ Completed {total_tasks} tasks")
@@ -299,6 +341,7 @@ class NRCBot:
         print(f"\n🔑 Bot {self.bot_id} Logging in: {phone}")
         
         try:
+            # First, make sure we're on the login page
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(2)
             self.screenshot("01_login_page")
@@ -389,21 +432,20 @@ class NRCBot:
     # ============================================
 
     def process_account(self, phone, password):
-        """Full account process: Login → Remove Important Notice → Tasks → Stay logged in"""
+        """Login → Remove Important Notice → Do 6 tasks → Stay logged in"""
         if not self.login(phone, password):
             return False
         
-        # Remove Important Notice popup
         self.remove_important_notice()
         self.screenshot("after_popup_removal")
         
-        # Do tasks
         self.do_tasks()
         self.screenshot("after_tasks")
         
         return True
 
     def logout_all(self):
+        """Only logout at the very end"""
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
@@ -432,8 +474,10 @@ class NRCBot:
             else:
                 print(f"   ❌ FAILED for {phone}")
             
-            time.sleep(2)
+            # Wait between accounts but DON'T LOGOUT
+            time.sleep(3)
 
+        # Only logout once at the very end
         if self.logged_in_accounts:
             self.logout_all()
         else:
