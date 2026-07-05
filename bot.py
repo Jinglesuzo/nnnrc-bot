@@ -4,6 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.common.exceptions import TimeoutException
 import time
 import random
 import csv
@@ -16,6 +17,7 @@ class NRCBot:
         self.start_index = start_index
         self.logins = []
         self.step_counter = 0
+        self.password_typed = False  # Track if password was typed
 
         self.load_logins()
 
@@ -71,15 +73,22 @@ class NRCBot:
         except:
             return False
 
-    def type_text(self, element, text):
+    def type_text_once(self, element, text):
+        """Type text ONLY ONCE - properly cleared"""
         try:
+            # Click and clear
             element.click()
-            time.sleep(0.1)
+            time.sleep(0.2)
             element.clear()
             time.sleep(0.1)
+            
+            # Type each character ONCE
             for char in text:
                 element.send_keys(char)
                 time.sleep(random.uniform(0.03, 0.07))
+            
+            # Verify the value
+            time.sleep(0.1)
             return True
         except Exception as e:
             print(f"   ⚠️ Type error: {e}")
@@ -108,11 +117,9 @@ class NRCBot:
             print(f"   ⏰ Page load timeout")
             return False
 
-    # === FIND LOGIN BUTTON (MULTIPLE METHODS) ===
     def find_login_button(self):
         print(f"   🔍 Looking for login button...")
         
-        # Method 1: By exact text "Log in now"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
             if btn.is_displayed() and btn.is_enabled():
@@ -121,7 +128,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 2: By contains text "Log in now"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
             if btn.is_displayed() and btn.is_enabled():
@@ -130,16 +136,14 @@ class NRCBot:
         except:
             pass
         
-        # Method 3: By text "Login"
         try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in')]")
             if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Login'")
+                print(f"   ✅ Found 'Log in'")
                 return btn
         except:
             pass
         
-        # Method 4: By type submit
         try:
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             if btn.is_displayed() and btn.is_enabled():
@@ -148,7 +152,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 5: Any visible button
         try:
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
@@ -163,13 +166,12 @@ class NRCBot:
         print(f"   ❌ No login button found")
         return None
 
-    # === LOGIN ===
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
         print(f"   📝 Password: {password}")
+        self.password_typed = False  # Reset flag
         
         try:
-            # Load login page
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(2)
             self.screenshot("01_login_page")
@@ -179,20 +181,21 @@ class NRCBot:
                 self.driver.refresh()
                 time.sleep(2)
             
-            # --- PHONE ---
+            # --- PHONE (ONCE) ---
             phone_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
             )
-            self.type_text(phone_field, phone)
+            self.type_text_once(phone_field, phone)
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
             
-            # --- PASSWORD ---
+            # --- PASSWORD (ONCE) ---
             password_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
             )
-            self.type_text(password_field, password)
-            print(f"   ✅ Password entered")
+            self.type_text_once(password_field, password)
+            self.password_typed = True
+            print(f"   ✅ Password entered (once)")
             self.screenshot("03_password_entered")
             
             # --- LOGIN BUTTON ---
@@ -205,31 +208,23 @@ class NRCBot:
                 print(f"   ❌ No login button found")
                 return False
             
-            # Wait for response
             time.sleep(5)
             self.screenshot("05_after_login_wait")
             
-            # Check if login successful
+            # Check result
             page_source = self.driver.page_source.lower()
             current_url = self.driver.current_url.lower()
             
-            # SUCCESS: Important Notice = Login worked!
             if "important notice" in page_source:
-                print(f"   ✅✅✅ LOGIN SUCCESS! (Important Notice found)")
-                self.screenshot("06_login_success_important_notice")
+                print(f"   ✅✅✅ LOGIN SUCCESS!")
+                self.screenshot("06_login_success")
                 return True
             
-            if "cooperative wealth zone" in page_source:
-                print(f"   ✅✅✅ LOGIN SUCCESS! (Dashboard found)")
-                self.screenshot("06_login_success_dashboard")
+            if "cooperative wealth zone" in page_source or "dashboard" in current_url:
+                print(f"   ✅✅✅ LOGIN SUCCESS!")
+                self.screenshot("06_login_success")
                 return True
             
-            if "dashboard" in current_url:
-                print(f"   ✅✅✅ LOGIN SUCCESS! (Redirected to dashboard)")
-                self.screenshot("06_login_success_redirect")
-                return True
-            
-            # FAILURE
             if "invalid" in page_source or "incorrect" in page_source:
                 print(f"   ❌ Invalid credentials")
                 self.screenshot("06_login_invalid")
