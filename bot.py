@@ -22,6 +22,7 @@ class NRCBot:
         self.successful = 0
         self.failed = 0
         self.max_login_retries = 2
+        self.step_counter = 0
 
         self.load_logins()
 
@@ -71,97 +72,49 @@ class NRCBot:
             print(f"❌ Bot {self.bot_id} Failed to load logins: {e}")
             sys.exit(1)
 
-    def type_text_once(self, element, text):
-        """Type text ONCE - properly cleared"""
+    # === SCREENSHOT ===
+    def screenshot(self, name):
+        self.step_counter += 1
         try:
-            # Click and clear
+            filename = f"bot{self.bot_id}_{self.step_counter:03d}_{name}.png"
+            self.driver.save_screenshot(filename)
+            print(f"   📸 {filename}")
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Screenshot error: {e}")
+            return False
+
+    # === TYPE TEXT ONCE ===
+    def type_text(self, element, text):
+        try:
             element.click()
-            time.sleep(0.15)
+            time.sleep(0.1)
             element.clear()
             time.sleep(0.1)
-            
-            # Type each character
             for char in text:
                 element.send_keys(char)
                 time.sleep(random.uniform(0.03, 0.07))
-            
-            # Verify
-            time.sleep(0.1)
             return True
         except Exception as e:
             print(f"   ⚠️ Type error: {e}")
             return False
 
-    def click_login_button(self):
-        """Find and click the login button using multiple methods"""
+    # === CLICK ELEMENT ===
+    def click_element(self, element):
         try:
-            # Method 1: By exact text
-            btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
-            print(f"   ✅ Found 'Log in now'")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
             time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", btn)
+            self.driver.execute_script("arguments[0].click();", element)
             return True
         except:
-            pass
-        
-        try:
-            # Method 2: By contains text
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            print(f"   ✅ Found containing 'Log in now'")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", btn)
-            return True
-        except:
-            pass
-        
-        try:
-            # Method 3: By button text "Login"
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
-            print(f"   ✅ Found 'Login'")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", btn)
-            return True
-        except:
-            pass
-        
-        try:
-            # Method 4: By type submit
-            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            print(f"   ✅ Found submit button")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", btn)
-            return True
-        except:
-            pass
-        
-        try:
-            # Method 5: Any button with 'log' in text
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if 'log' in btn.text.lower() or 'in' in btn.text.lower():
-                    print(f"   ✅ Found button: '{btn.text}'")
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                    time.sleep(0.3)
-                    self.driver.execute_script("arguments[0].click();", btn)
-                    return True
-        except:
-            pass
-        
-        print(f"   ❌ No login button found")
-        return False
+            try:
+                element.click()
+                return True
+            except:
+                return False
 
-    def take_screenshot(self, name):
-        try:
-            self.driver.save_screenshot(f"bot{self.bot_id}_{name}.png")
-            print(f"   📸 Screenshot: {name}")
-        except:
-            pass
-
-    def wait_for_page_load(self, timeout=30):
+    # === WAIT FOR PAGE LOAD ===
+    def wait_for_page(self, timeout=30):
         try:
             WebDriverWait(self.driver, timeout).until(
                 lambda driver: driver.execute_script("return document.readyState") == "complete"
@@ -171,6 +124,7 @@ class NRCBot:
             print(f"   ⏰ Page load timeout")
             return False
 
+    # === LOGIN ===
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
         
@@ -178,180 +132,144 @@ class NRCBot:
             try:
                 print(f"   Attempt {attempt + 1}/{self.max_login_retries}")
                 
-                # Load login page
                 self.driver.get("https://nnnrc.com/#/login")
                 time.sleep(2)
+                self.screenshot("login_page")
                 
-                if not self.wait_for_page_load(30):
+                if not self.wait_for_page(30):
                     print(f"   ⏰ Timeout, reloading...")
                     self.driver.refresh()
                     time.sleep(2)
                     continue
                 
-                # --- PHONE ---
+                # Phone
                 phone_field = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
                 )
-                self.type_text_once(phone_field, phone)
+                self.type_text(phone_field, phone)
                 print(f"   ✅ Phone: {phone}")
                 
-                # --- PASSWORD (ONCE) ---
+                # Password
                 password_field = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
                 )
-                self.type_text_once(password_field, password)
-                print(f"   ✅ Password: {password[:3]}***")
+                self.type_text(password_field, password)
+                print(f"   ✅ Password entered")
                 
-                # --- CLICK LOGIN ---
-                if self.click_login_button():
-                    print(f"   ✅ Clicked login")
-                else:
-                    print(f"   ❌ No login button found")
-                    time.sleep(1)
-                    continue
+                # Login button
+                try:
+                    login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+                except:
+                    login_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
                 
-                # Wait for response
-                time.sleep(4)
+                self.click_element(login_btn)
+                print(f"   ✅ Clicked login")
+                self.screenshot("after_login_click")
                 
-                # Check result
+                time.sleep(5)
+                self.screenshot("after_login_wait")
+                
+                # Check if login successful
                 page_source = self.driver.page_source.lower()
                 current_url = self.driver.current_url.lower()
                 
                 if "cooperative wealth zone" in page_source or "dashboard" in current_url:
                     print(f"   ✅ Login SUCCESS!")
-                    self.take_screenshot(f"login_success_{phone}")
+                    self.screenshot("login_success")
                     return True
                 
-                if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
+                if "invalid" in page_source or "incorrect" in page_source:
                     print(f"   ❌ Invalid credentials")
+                    self.screenshot("login_invalid")
                     return False
                 
                 print(f"   ❌ Login failed, retrying...")
-                time.sleep(1)
+                time.sleep(2)
                 
             except Exception as e:
-                print(f"   ⚠️ Error: {e}")
-                time.sleep(1)
+                print(f"   ⚠️ Login error: {e}")
+                self.screenshot("login_error")
+                time.sleep(2)
                 continue
         
-        print(f"   ❌ Failed after {self.max_login_retries} attempts")
-        self.take_screenshot(f"login_failed_{phone}")
+        print(f"   ❌ Login failed after {self.max_login_retries} attempts")
+        self.screenshot("login_failed")
         return False
 
-    def click_news_button(self):
-        try:
-            selectors = [
-                "//*[contains(text(), 'NEWS')]",
-                "//*[contains(text(), 'News')]",
-                "//button[contains(text(), 'NEWS')]",
-                "//*[contains(@class, 'news')]"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            print("   📰 Clicked NEWS")
-                            time.sleep(1.5)
-                            return True
-                except:
-                    continue
-            return False
-        except:
-            return False
-
-    def close_welcome_popup(self):
-        try:
-            selectors = [
-                "//*[contains(text(), 'Welcome to join NRC')]",
-                "//*[contains(text(), 'Thank you for your trust')]",
-                "//button[contains(text(), 'Got it')]",
-                "//button[contains(text(), 'OK')]",
-                "//*[contains(@class, 'modal-close')]",
-                "//*[text()='×']"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            print("   🚫 Closed Welcome popup")
-                            time.sleep(0.5)
-                            return True
-                except:
-                    continue
-            return False
-        except:
-            return False
-
-    def close_remaining_popups(self):
-        try:
-            selectors = [
-                "//*[contains(@class, 'close')]",
-                "//*[contains(@class, 'modal-close')]",
-                "//*[text()='×']",
-                "//*[text()='✕']",
-                "//button[contains(@class, 'btn-close')]"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            time.sleep(0.3)
-                except:
-                    continue
-            return True
-        except:
-            return False
-
+    # === HANDLE POPUPS ===
     def handle_popups(self):
-        print("   📋 Handling popups...")
-        self.click_news_button()
-        self.close_welcome_popup()
-        self.close_remaining_popups()
-        print("   ✅ Popups handled")
-
-    def click_task_tab(self):
+        print("   📋 Checking for popups...")
+        self.screenshot("before_popup_handling")
+        
+        # Look for Important Notice
         try:
-            selectors = [
-                "//*[contains(text(), 'Task')]",
-                "//*[contains(@class, 'task')]",
-                "//button[contains(text(), 'Task')]",
-                "//*[contains(@class, 'tab-task')]"
-            ]
-            for selector in selectors:
+            important_notice = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Important Notice')]")
+            if important_notice.is_displayed():
+                print("   📋 Found Important Notice")
+                self.screenshot("important_notice_found")
+                
+                # Look for NEWS button
                 try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            print("   📋 Clicked Task")
-                            time.sleep(1)
-                            return True
+                    news_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'NEWS')] | //*[contains(text(), 'News')]")
+                    if news_btn.is_displayed():
+                        self.click_element(news_btn)
+                        print("   📰 Clicked NEWS button")
+                        self.screenshot("after_news_click")
+                        time.sleep(2)
                 except:
-                    continue
-            return False
+                    print("   ⚠️ NEWS button not found")
+                
+                # Close any popups
+                time.sleep(1)
+                
+                # Close Welcome popup if present
+                try:
+                    welcome_close = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Got it')] | //button[contains(text(), 'OK')] | //*[contains(@class, 'modal-close')] | //*[text()='×']")
+                    if welcome_close.is_displayed():
+                        self.click_element(welcome_close)
+                        print("   🚫 Closed popup")
+                        self.screenshot("after_popup_close")
+                        time.sleep(1)
+                except:
+                    pass
+                
+                # Close any remaining ads
+                try:
+                    close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×'] | //button[contains(@class, 'btn-close')]")
+                    for btn in close_btns:
+                        if btn.is_displayed() and btn.is_enabled():
+                            self.click_element(btn)
+                            time.sleep(0.3)
+                    print("   ✅ Closed remaining popups")
+                except:
+                    pass
+                
+                self.screenshot("after_all_popups")
+                return True
         except:
-            return False
+            pass
+        
+        print("   ✅ No popups found or already handled")
+        self.screenshot("no_popups")
+        return True
 
+    # === TASKS ===
     def do_tasks(self):
         print("   📋 Doing tasks...")
+        self.screenshot("before_tasks")
         
-        self.click_task_tab()
-        time.sleep(1)
+        # Click Task tab
+        try:
+            task_tab = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Task')] | //button[contains(text(), 'Task')]")
+            self.click_element(task_tab)
+            print("   📋 Clicked Task tab")
+            self.screenshot("after_task_click")
+            time.sleep(2)
+        except:
+            print("   ⚠️ Could not find Task tab")
+            self.screenshot("task_tab_error")
         
+        # Find read buttons
         read_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
         if not read_buttons:
             read_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Read')]")
@@ -360,173 +278,108 @@ class NRCBot:
         for btn in read_buttons:
             try:
                 if btn.is_displayed() and btn.is_enabled():
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                    time.sleep(0.5)
-                    self.driver.execute_script("arguments[0].click();", btn)
+                    self.click_element(btn)
                     print(f"   📖 Clicked read task {count + 1}")
+                    self.screenshot(f"task_{count+1}_clicked")
                     time.sleep(1)
                     print(f"   ⏳ Waiting 20 seconds...")
                     time.sleep(20)
-                    self.close_remaining_popups()
-                    time.sleep(1)
+                    self.screenshot(f"task_{count+1}_done")
                     count += 1
             except Exception as e:
                 print(f"   ⚠️ Task error: {e}")
+                self.screenshot(f"task_{count+1}_error")
         
         print(f"   ✅ Completed {count} tasks")
-        self.take_screenshot("tasks_completed")
+        self.screenshot("tasks_completed")
         return count
 
+    # === WITHDRAWAL ===
     def click_my_tab(self):
         try:
-            selectors = [
-                "//*[contains(text(), 'My')]",
-                "//*[contains(@class, 'my')]",
-                "//button[contains(text(), 'My')]",
-                "//*[contains(@class, 'tab-my')]"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            print("   👤 Clicked My")
-                            time.sleep(1)
-                            return True
-                except:
-                    continue
-            return False
+            my_tab = self.driver.find_element(By.XPATH, "//*[contains(text(), 'My')] | //button[contains(text(), 'My')]")
+            self.click_element(my_tab)
+            print("   👤 Clicked My")
+            self.screenshot("after_my_click")
+            time.sleep(1)
+            return True
         except:
+            print("   ⚠️ Could not find My tab")
             return False
 
     def click_withdrawal(self):
         try:
-            selectors = [
-                "//*[contains(text(), 'Withdrawal')]",
-                "//*[contains(text(), 'withdrawal')]",
-                "//button[contains(text(), 'Withdrawal')]",
-                "//a[contains(@href, 'withdraw')]"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for element in elements:
-                        if element.is_displayed() and element.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                            time.sleep(0.3)
-                            self.driver.execute_script("arguments[0].click();", element)
-                            print("   💰 Clicked Withdrawal")
-                            time.sleep(2)
-                            return True
-                except:
-                    continue
+            withdrawal = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Withdrawal')] | //button[contains(text(), 'Withdrawal')]")
+            self.click_element(withdrawal)
+            print("   💰 Clicked Withdrawal")
+            self.screenshot("after_withdrawal_click")
+            time.sleep(2)
+            return True
+        except:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
+            time.sleep(2)
+            return True
+
+    def set_fund_password(self, password):
+        try:
+            fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
+            self.type_text(fund_input, password)
+            print("   🔑 Entered fund password")
+            
+            confirm_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
+            self.type_text(confirm_input, password)
+            print("   🔑 Confirmed fund password")
+            
+            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            self.click_element(submit_btn)
+            print("   ✅ Fund password set")
+            self.screenshot("fund_password_set")
             time.sleep(2)
             return True
         except:
             return False
 
-    def set_fund_password(self, password):
-        try:
-            fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
-            if fund_inputs:
-                self.type_text_once(fund_inputs[0], password)
-                print("   🔑 Entered fund password")
-                
-                confirm_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
-                if confirm_inputs:
-                    self.type_text_once(confirm_inputs[0], password)
-                    print("   🔑 Confirmed fund password")
-                    
-                    submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-                    time.sleep(0.3)
-                    self.driver.execute_script("arguments[0].click();", submit_btn)
-                    print("   ✅ Fund password set")
-                    time.sleep(2)
-                    
-                    confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
-                    if confirm_btn:
-                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", confirm_btn[0])
-                        time.sleep(0.3)
-                        self.driver.execute_script("arguments[0].click();", confirm_btn[0])
-                        time.sleep(1)
-                    return True
-            return False
-        except Exception as e:
-            print(f"   ⚠️ Fund password error: {e}")
-            return False
-
     def authenticate_real_name(self, name):
         try:
-            auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
-            if auth_btn:
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", auth_btn[0])
-                time.sleep(0.3)
-                self.driver.execute_script("arguments[0].click();", auth_btn[0])
-                time.sleep(2)
+            auth_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
+            self.click_element(auth_btn)
+            time.sleep(2)
             
             name_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter a real name']")
-            self.type_text_once(name_input, name)
+            self.type_text(name_input, name)
             print(f"   👤 Entered name: {name}")
             
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", submit_btn)
+            self.click_element(submit_btn)
             print("   ✅ Real name authenticated")
+            self.screenshot("real_name_authenticated")
             time.sleep(2)
             return True
-        except Exception as e:
-            print(f"   ⚠️ Authentication error: {e}")
+        except:
             return False
 
-    def add_bank_card(self, real_name, bank_name, account_number):
+    def add_bank_card(self, bank_name, account_number):
         try:
             bank_select = self.driver.find_element(By.XPATH, "//*[contains(text(), '--Please select the bank name--')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", bank_select)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", bank_select)
+            self.click_element(bank_select)
             time.sleep(1)
             
             bank_option = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{bank_name}')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", bank_option)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", bank_option)
+            self.click_element(bank_option)
             print(f"   🏦 Selected bank: {bank_name}")
             time.sleep(1)
             
-            confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
-            if confirm_btn:
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", confirm_btn[0])
-                time.sleep(0.3)
-                self.driver.execute_script("arguments[0].click();", confirm_btn[0])
-                time.sleep(1)
-            
             account_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the bank account number']")
-            self.type_text_once(account_input, account_number)
+            self.type_text(account_input, account_number)
             print(f"   🏦 Entered account: {account_number}")
             
             add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", add_btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", add_btn)
+            self.click_element(add_btn)
             print("   ✅ Bank card added")
+            self.screenshot("bank_card_added")
             time.sleep(3)
-            
-            confirm_btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
-            if confirm_btn2:
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", confirm_btn2[0])
-                time.sleep(0.3)
-                self.driver.execute_script("arguments[0].click();", confirm_btn2[0])
-                time.sleep(1)
-            
             return True
-        except Exception as e:
-            print(f"   ⚠️ Bank card error: {e}")
+        except:
             return False
 
     def complete_withdrawal(self, amount="1800", fund_password="3333"):
@@ -536,49 +389,31 @@ class NRCBot:
             self.click_withdrawal()
             time.sleep(2)
             
+            # Select withdrawal method
             method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", method_select)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", method_select)
+            self.click_element(method_select)
             time.sleep(1)
             
             bank_option = self.driver.find_element(By.XPATH, "//*[contains(text(), 'OPAY')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", bank_option)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", bank_option)
+            self.click_element(bank_option)
             print("   💳 Selected OPAY")
             time.sleep(1)
             
-            confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", confirm_btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", confirm_btn)
-            time.sleep(1)
-            
+            # Enter fund password
             fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
-            self.type_text_once(fund_input, fund_password)
+            self.type_text(fund_input, fund_password)
             print("   🔑 Entered fund password")
-            time.sleep(1)
             
+            # Enter amount
             amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
-            self.type_text_once(amount_input, amount)
+            self.type_text(amount_input, amount)
             print(f"   💰 Entered amount: {amount}")
-            time.sleep(1)
             
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", submit_btn)
+            self.click_element(submit_btn)
             print("   ✅ Withdrawal submitted")
+            self.screenshot("withdrawal_submitted")
             time.sleep(3)
-            
-            final_confirm = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
-            if final_confirm:
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", final_confirm[0])
-                time.sleep(0.3)
-                self.driver.execute_script("arguments[0].click();", final_confirm[0])
-                time.sleep(1)
-            
             return True
         except Exception as e:
             print(f"   ⚠️ Withdrawal error: {e}")
@@ -589,10 +424,12 @@ class NRCBot:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
             print("   ✅ Logged out")
+            self.screenshot("logged_out")
             return True
         except:
             return False
 
+    # === PROCESS DAY ===
     def process_day(self, login_data, day):
         phone = login_data['phone']
         password = login_data['password']
@@ -610,13 +447,14 @@ class NRCBot:
             return False
 
         self.handle_popups()
-        self.take_screenshot(f"day{day}_logged_in")
+        self.screenshot(f"day{day}_after_popups")
 
         self.do_tasks()
-        self.take_screenshot(f"day{day}_tasks_done")
+        self.screenshot(f"day{day}_after_tasks")
 
         if day == 3:
             print("   💰 Day 3 - Processing withdrawal...")
+            self.screenshot(f"day{day}_before_withdrawal")
             
             self.click_my_tab()
             time.sleep(1)
@@ -627,35 +465,35 @@ class NRCBot:
             page_source = self.driver.page_source.lower()
             if "bind bank card" in page_source or "authenticate now" in page_source:
                 print("   🏦 Setting up bank details...")
+                self.screenshot("bank_setup_start")
                 
                 self.click_my_tab()
                 time.sleep(1)
                 
-                add_bank_links = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
-                if add_bank_links:
-                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", add_bank_links[0])
-                    time.sleep(0.3)
-                    self.driver.execute_script("arguments[0].click();", add_bank_links[0])
+                try:
+                    add_bank = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
+                    self.click_element(add_bank)
                     time.sleep(2)
+                except:
+                    pass
                 
-                auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
-                if auth_btn:
+                if "authenticate now" in page_source:
                     self.authenticate_real_name(real_name)
                     time.sleep(2)
                 
-                self.add_bank_card(real_name, bank_name, bank_account)
+                self.add_bank_card(bank_name, bank_account)
                 time.sleep(2)
                 
-                fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
-                if fund_inputs:
+                try:
                     self.set_fund_password(fund_password)
                     time.sleep(2)
+                except:
+                    pass
             
             self.complete_withdrawal("1800", fund_password)
-            self.take_screenshot(f"day{day}_withdrawal_done")
+            self.screenshot(f"day{day}_withdrawal_done")
         
         self.logout()
-        self.take_screenshot(f"day{day}_logged_out")
         return True
 
     def process_account(self, login_data):
