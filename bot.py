@@ -4,7 +4,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
 import csv
@@ -73,28 +74,15 @@ class NRCBot:
             return False
 
     def clear_and_type(self, element, text):
-        """CLEAR the field and type text ONCE - guaranteed"""
+        """Clear and type text ONCE"""
         try:
-            # Click to focus
-            self.driver.execute_script("arguments[0].focus();", element)
+            element.click()
             time.sleep(0.1)
-            
-            # Select all and delete (most reliable)
-            element.send_keys(Keys.CONTROL + "a")
-            time.sleep(0.05)
-            element.send_keys(Keys.DELETE)
-            time.sleep(0.05)
-            
-            # Also clear using JavaScript
-            self.driver.execute_script("arguments[0].value = '';", element)
-            time.sleep(0.05)
-            
-            # Type the text ONCE
+            element.clear()
+            time.sleep(0.1)
             for char in text:
                 element.send_keys(char)
                 time.sleep(random.uniform(0.03, 0.06))
-            
-            # Verify
             time.sleep(0.1)
             return True
         except Exception as e:
@@ -124,41 +112,134 @@ class NRCBot:
             print(f"   ⏰ Page load timeout")
             return False
 
+    # === FIND PHONE FIELD ===
+    def find_phone_field(self):
+        """Find phone field using multiple selectors"""
+        print(f"   🔍 Looking for phone field...")
+        
+        selectors = [
+            "//input[@placeholder='Please enter your phone number']",
+            "//input[@placeholder='Please enter phone number']",
+            "//input[@type='tel']",
+            "//input[@type='text'][contains(@placeholder, 'phone')]",
+            "//input[contains(@placeholder, 'Phone')]",
+            "//input[contains(@name, 'phone')]",
+            "//input[contains(@id, 'phone')]"
+        ]
+        
+        for selector in selectors:
+            try:
+                element = self.driver.find_element(By.XPATH, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found phone field: {selector}")
+                    return element
+            except:
+                continue
+        
+        # Try CSS selectors
+        css_selectors = [
+            "input[placeholder*='phone']",
+            "input[placeholder*='Phone']",
+            "input[type='tel']",
+            "input[name*='phone']",
+            "input[id*='phone']"
+        ]
+        
+        for selector in css_selectors:
+            try:
+                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found phone field (CSS): {selector}")
+                    return element
+            except:
+                continue
+        
+        print(f"   ❌ Phone field not found")
+        return None
+
+    # === FIND PASSWORD FIELD ===
+    def find_password_field(self):
+        """Find password field using multiple selectors"""
+        print(f"   🔍 Looking for password field...")
+        
+        selectors = [
+            "//input[@placeholder='Please enter login password']",
+            "//input[@placeholder='Please enter password']",
+            "//input[@type='password']",
+            "//input[contains(@placeholder, 'password')]",
+            "//input[contains(@name, 'password')]",
+            "//input[contains(@id, 'password')]"
+        ]
+        
+        for selector in selectors:
+            try:
+                element = self.driver.find_element(By.XPATH, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found password field: {selector}")
+                    return element
+            except:
+                continue
+        
+        # Try CSS selectors
+        css_selectors = [
+            "input[type='password']",
+            "input[placeholder*='password']",
+            "input[name*='password']",
+            "input[id*='password']"
+        ]
+        
+        for selector in css_selectors:
+            try:
+                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found password field (CSS): {selector}")
+                    return element
+            except:
+                continue
+        
+        print(f"   ❌ Password field not found")
+        return None
+
+    # === FIND LOGIN BUTTON ===
     def find_login_button(self):
         print(f"   🔍 Looking for login button...")
         
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
-            if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Log in now'")
-                return btn
-        except:
-            pass
+        selectors = [
+            "//button[text()='Log in now']",
+            "//button[contains(text(), 'Log in now')]",
+            "//button[contains(text(), 'Log in')]",
+            "//button[contains(text(), 'Login')]",
+            "//button[@type='submit']",
+            "//input[@type='submit']"
+        ]
         
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Log in now'")
-                return btn
-        except:
-            pass
+        for selector in selectors:
+            try:
+                element = self.driver.find_element(By.XPATH, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found login button: {selector}")
+                    return element
+            except:
+                continue
         
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in')]")
-            if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Log in'")
-                return btn
-        except:
-            pass
+        # Try CSS
+        css_selectors = [
+            "button[type='submit']",
+            "input[type='submit']",
+            "button[class*='login']",
+            "button[class*='Login']"
+        ]
         
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found submit button")
-                return btn
-        except:
-            pass
+        for selector in css_selectors:
+            try:
+                element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                if element.is_displayed() and element.is_enabled():
+                    print(f"   ✅ Found login button (CSS): {selector}")
+                    return element
+            except:
+                continue
         
+        # Any visible button
         try:
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
@@ -179,7 +260,7 @@ class NRCBot:
         
         try:
             self.driver.get("https://nnnrc.com/#/login")
-            time.sleep(2)
+            time.sleep(3)
             self.screenshot("01_login_page")
             
             if not self.wait_for_page(30):
@@ -187,21 +268,27 @@ class NRCBot:
                 self.driver.refresh()
                 time.sleep(2)
             
-            # --- PHONE (ONCE) ---
-            phone_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
-            )
-            self.clear_and_type(phone_field, phone)
-            print(f"   ✅ Phone: {phone}")
-            self.screenshot("02_phone_entered")
+            # --- PHONE ---
+            phone_field = self.find_phone_field()
+            if phone_field:
+                self.clear_and_type(phone_field, phone)
+                print(f"   ✅ Phone: {phone}")
+                self.screenshot("02_phone_entered")
+            else:
+                print(f"   ❌ Could not find phone field")
+                self.screenshot("02_phone_field_not_found")
+                return False
             
-            # --- PASSWORD (ONCE) ---
-            password_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
-            )
-            self.clear_and_type(password_field, password)
-            print(f"   ✅ Password: {password} (typed once)")
-            self.screenshot("03_password_entered")
+            # --- PASSWORD ---
+            password_field = self.find_password_field()
+            if password_field:
+                self.clear_and_type(password_field, password)
+                print(f"   ✅ Password entered")
+                self.screenshot("03_password_entered")
+            else:
+                print(f"   ❌ Could not find password field")
+                self.screenshot("03_password_field_not_found")
+                return False
             
             # --- LOGIN BUTTON ---
             login_btn = self.find_login_button()
@@ -211,6 +298,7 @@ class NRCBot:
                 self.screenshot("04_after_login_click")
             else:
                 print(f"   ❌ No login button found")
+                self.screenshot("04_login_button_not_found")
                 return False
             
             time.sleep(5)
