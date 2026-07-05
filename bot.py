@@ -21,7 +21,7 @@ class NRCBot:
         self.processed = 0
         self.successful = 0
         self.failed = 0
-        self.max_login_retries = 3
+        self.max_login_retries = 2
 
         self.load_logins()
 
@@ -71,32 +71,33 @@ class NRCBot:
             print(f"❌ Bot {self.bot_id} Failed to load logins: {e}")
             sys.exit(1)
 
-    def human_type(self, element, text):
-        """Type text ONCE with small delays between characters"""
-        # Clear the field first
-        element.click()
-        element.clear()
-        time.sleep(0.2)
-        
-        # Type each character ONCE
-        for char in text:
-            element.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.12))
-        
-        # Small pause after typing
-        time.sleep(0.2)
+    def type_text(self, element, text):
+        """Type text ONCE - properly cleared"""
+        try:
+            # Click to focus
+            element.click()
+            time.sleep(0.1)
+            # Clear
+            element.clear()
+            time.sleep(0.1)
+            # Type each character
+            for char in text:
+                element.send_keys(char)
+                time.sleep(random.uniform(0.03, 0.08))
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Type error: {e}")
+            return False
 
-    def human_click(self, element):
+    def click_element(self, element):
+        """Click using JavaScript"""
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-            time.sleep(0.3)
+            time.sleep(0.2)
             self.driver.execute_script("arguments[0].click();", element)
             return True
         except:
             try:
-                actions = ActionChains(self.driver)
-                actions.move_to_element(element).perform()
-                time.sleep(0.2)
                 element.click()
                 return True
             except:
@@ -116,58 +117,8 @@ class NRCBot:
             )
             return True
         except TimeoutException:
-            print(f"   ⏰ Page load timeout (30s)")
+            print(f"   ⏰ Page load timeout")
             return False
-
-    def click_login_button(self):
-        print(f"   🔍 Looking for login button...")
-        
-        # Method 1: By text "Log in now"
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            if btn.is_displayed():
-                print(f"   ✅ Found 'Log in now' button")
-                self.human_click(btn)
-                return True
-        except:
-            pass
-        
-        # Method 2: By text "Login"
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
-            if btn.is_displayed():
-                print(f"   ✅ Found 'Login' button")
-                self.human_click(btn)
-                return True
-        except:
-            pass
-        
-        # Method 3: By button type submit
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            if btn.is_displayed():
-                print(f"   ✅ Found submit button")
-                self.human_click(btn)
-                return True
-        except:
-            pass
-        
-        # Method 4: Any green/primary button
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if btn.is_displayed():
-                    classes = btn.get_attribute('class') or ''
-                    style = btn.get_attribute('style') or ''
-                    if 'green' in classes.lower() or 'primary' in classes.lower() or 'login' in classes.lower():
-                        print(f"   ✅ Found green button")
-                        self.human_click(btn)
-                        return True
-        except:
-            pass
-        
-        print(f"   ❌ Could NOT find login button")
-        return False
 
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
@@ -176,82 +127,79 @@ class NRCBot:
             try:
                 print(f"   Attempt {attempt + 1}/{self.max_login_retries}")
                 
+                # Load login page
                 self.driver.get("https://nnnrc.com/#/login")
                 time.sleep(2)
                 
                 if not self.wait_for_page_load(30):
-                    print(f"   ⏰ Page load timeout, reloading...")
+                    print(f"   ⏰ Timeout, reloading...")
                     self.driver.refresh()
-                    time.sleep(3)
-                    continue
-                
-                # === PHONE FIELD ===
-                try:
-                    phone_field = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
-                    )
-                except TimeoutException:
-                    print(f"   ⏰ Phone field not found, reloading...")
-                    self.driver.refresh()
-                    time.sleep(3)
-                    continue
-                
-                # Type phone ONCE
-                self.human_type(phone_field, phone)
-                print(f"   ✅ Entered phone: {phone}")
-                
-                # === PASSWORD FIELD ===
-                try:
-                    password_field = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
-                    )
-                except:
-                    try:
-                        password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the login password']")
-                    except:
-                        print(f"   ⏰ Password field not found, reloading...")
-                        self.driver.refresh()
-                        time.sleep(3)
-                        continue
-                
-                # Type password ONCE
-                self.human_type(password_field, password)
-                print(f"   ✅ Entered password: {password[:3]}***")
-                
-                # === CLICK LOGIN BUTTON ===
-                if self.click_login_button():
-                    print(f"   ✅ Clicked login button")
-                else:
-                    print(f"   ❌ Login button not found - retrying...")
                     time.sleep(2)
                     continue
                 
+                # --- PHONE ---
+                phone_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
+                )
+                self.type_text(phone_field, phone)
+                print(f"   ✅ Phone: {phone}")
+                
+                # --- PASSWORD (ONCE) ---
+                password_field = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
+                )
+                self.type_text(password_field, password)
+                print(f"   ✅ Password: {password[:3]}***")
+                
+                # --- FIND AND CLICK LOGIN ---
+                try:
+                    # Find by text "Log in now"
+                    login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+                    print(f"   ✅ Found 'Log in now'")
+                except:
+                    try:
+                        # Find by text "Login"
+                        login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+                        print(f"   ✅ Found 'Login'")
+                    except:
+                        try:
+                            # Find by type submit
+                            login_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+                            print(f"   ✅ Found submit button")
+                        except:
+                            print(f"   ❌ No login button found")
+                            time.sleep(1)
+                            continue
+                
+                # Click using JavaScript
+                self.click_element(login_btn)
+                print(f"   ✅ Clicked login")
+                
+                # Wait for response
                 time.sleep(4)
                 
-                # === CHECK LOGIN SUCCESS ===
+                # Check result
                 page_source = self.driver.page_source.lower()
                 current_url = self.driver.current_url.lower()
                 
-                if "cooperative wealth zone" in page_source or "dashboard" in current_url or "welcome" in page_source:
-                    print(f"   ✅ Login successful!")
+                if "cooperative wealth zone" in page_source or "dashboard" in current_url:
+                    print(f"   ✅ Login SUCCESS!")
                     self.take_screenshot(f"login_success_{phone}")
                     return True
                 
                 if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
                     print(f"   ❌ Invalid credentials")
-                    self.take_screenshot(f"login_invalid_{phone}")
                     return False
                 
                 print(f"   ❌ Login failed, retrying...")
-                time.sleep(2)
-                continue
-                    
+                time.sleep(1)
+                
             except Exception as e:
-                print(f"   ⚠️ Login error: {e}, retrying...")
-                time.sleep(2)
+                print(f"   ⚠️ Error: {e}")
+                time.sleep(1)
                 continue
         
-        print(f"   ❌ Failed to login after {self.max_login_retries} attempts")
+        print(f"   ❌ Failed after {self.max_login_retries} attempts")
         self.take_screenshot(f"login_failed_{phone}")
         return False
 
@@ -268,7 +216,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            self.human_click(element)
+                            self.click_element(element)
                             print("   📰 Clicked NEWS")
                             time.sleep(1.5)
                             return True
@@ -293,7 +241,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed():
-                            self.human_click(element)
+                            self.click_element(element)
                             print("   🚫 Closed Welcome popup")
                             time.sleep(0.5)
                             return True
@@ -317,7 +265,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            self.human_click(element)
+                            self.click_element(element)
                             time.sleep(0.3)
                 except:
                     continue
@@ -345,7 +293,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            self.human_click(element)
+                            self.click_element(element)
                             print("   📋 Clicked Task")
                             time.sleep(1)
                             return True
@@ -371,10 +319,10 @@ class NRCBot:
                 if btn.is_displayed() and btn.is_enabled():
                     self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
                     time.sleep(0.5)
-                    self.human_click(btn)
+                    self.click_element(btn)
                     print(f"   📖 Clicked read task {count + 1}")
                     time.sleep(1)
-                    print(f"   ⏳ Waiting 20 seconds for task to complete...")
+                    print(f"   ⏳ Waiting 20 seconds...")
                     time.sleep(20)
                     self.close_remaining_popups()
                     time.sleep(1)
@@ -399,7 +347,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            self.human_click(element)
+                            self.click_element(element)
                             print("   👤 Clicked My")
                             time.sleep(1)
                             return True
@@ -422,7 +370,7 @@ class NRCBot:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
-                            self.human_click(element)
+                            self.click_element(element)
                             print("   💰 Clicked Withdrawal")
                             time.sleep(2)
                             return True
@@ -438,22 +386,22 @@ class NRCBot:
         try:
             fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
             if fund_inputs:
-                self.human_type(fund_inputs[0], password)
+                self.type_text(fund_inputs[0], password)
                 print("   🔑 Entered fund password")
                 
                 confirm_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
                 if confirm_inputs:
-                    self.human_type(confirm_inputs[0], password)
+                    self.type_text(confirm_inputs[0], password)
                     print("   🔑 Confirmed fund password")
                     
                     submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-                    self.human_click(submit_btn)
+                    self.click_element(submit_btn)
                     print("   ✅ Fund password set")
                     time.sleep(2)
                     
                     confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
                     if confirm_btn:
-                        self.human_click(confirm_btn[0])
+                        self.click_element(confirm_btn[0])
                         time.sleep(1)
                     return True
             return False
@@ -465,15 +413,15 @@ class NRCBot:
         try:
             auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
             if auth_btn:
-                self.human_click(auth_btn[0])
+                self.click_element(auth_btn[0])
                 time.sleep(2)
             
             name_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter a real name']")
-            self.human_type(name_input, name)
+            self.type_text(name_input, name)
             print(f"   👤 Entered name: {name}")
             
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.human_click(submit_btn)
+            self.click_element(submit_btn)
             print("   ✅ Real name authenticated")
             time.sleep(2)
             return True
@@ -484,31 +432,31 @@ class NRCBot:
     def add_bank_card(self, real_name, bank_name, account_number):
         try:
             bank_select = self.driver.find_element(By.XPATH, "//*[contains(text(), '--Please select the bank name--')]")
-            self.human_click(bank_select)
+            self.click_element(bank_select)
             time.sleep(1)
             
             bank_option = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{bank_name}')]")
-            self.human_click(bank_option)
+            self.click_element(bank_option)
             print(f"   🏦 Selected bank: {bank_name}")
             time.sleep(1)
             
             confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
             if confirm_btn:
-                self.human_click(confirm_btn[0])
+                self.click_element(confirm_btn[0])
                 time.sleep(1)
             
             account_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the bank account number']")
-            self.human_type(account_input, account_number)
+            self.type_text(account_input, account_number)
             print(f"   🏦 Entered account: {account_number}")
             
             add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
-            self.human_click(add_btn)
+            self.click_element(add_btn)
             print("   ✅ Bank card added")
             time.sleep(3)
             
             confirm_btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
             if confirm_btn2:
-                self.human_click(confirm_btn2[0])
+                self.click_element(confirm_btn2[0])
                 time.sleep(1)
             
             return True
@@ -524,36 +472,36 @@ class NRCBot:
             time.sleep(2)
             
             method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
-            self.human_click(method_select)
+            self.click_element(method_select)
             time.sleep(1)
             
             bank_option = self.driver.find_element(By.XPATH, "//*[contains(text(), 'OPAY')]")
-            self.human_click(bank_option)
+            self.click_element(bank_option)
             print("   💳 Selected OPAY")
             time.sleep(1)
             
             confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
-            self.human_click(confirm_btn)
+            self.click_element(confirm_btn)
             time.sleep(1)
             
             fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
-            self.human_type(fund_input, fund_password)
+            self.type_text(fund_input, fund_password)
             print("   🔑 Entered fund password")
             time.sleep(1)
             
             amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
-            self.human_type(amount_input, amount)
+            self.type_text(amount_input, amount)
             print(f"   💰 Entered amount: {amount}")
             time.sleep(1)
             
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.human_click(submit_btn)
+            self.click_element(submit_btn)
             print("   ✅ Withdrawal submitted")
             time.sleep(3)
             
             final_confirm = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
             if final_confirm:
-                self.human_click(final_confirm[0])
+                self.click_element(final_confirm[0])
                 time.sleep(1)
             
             return True
@@ -610,7 +558,7 @@ class NRCBot:
                 
                 add_bank_links = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
                 if add_bank_links:
-                    self.human_click(add_bank_links[0])
+                    self.click_element(add_bank_links[0])
                     time.sleep(2)
                 
                 auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
