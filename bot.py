@@ -11,7 +11,8 @@ import os
 import sys
 
 class NRCBot:
-    def __init__(self):
+    def __init__(self, bot_id=1):
+        self.bot_id = bot_id
         self.step = 0
         self.load_logins()
 
@@ -22,21 +23,21 @@ class NRCBot:
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
 
-        print("🤖 Starting Chrome...")
+        print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
             service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started!")
+            print(f"✅ Bot {self.bot_id} Chrome started!")
         except:
             from webdriver_manager.chrome import ChromeDriverManager
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started!")
+            print(f"✅ Bot {self.bot_id} Chrome started!")
 
     def screenshot(self, name):
         self.step += 1
         try:
-            filename = f"bot_{self.step:03d}_{name}.png"
+            filename = f"bot{self.bot_id}_{self.step:03d}_{name}.png"
             self.driver.save_screenshot(filename)
             print(f"   📸 {filename}")
         except:
@@ -54,25 +55,20 @@ class NRCBot:
                             'phone': row[0].strip(),
                             'password': row[1].strip()
                         })
-            print(f"📋 Loaded {len(self.logins)} login(s)")
+            print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
         except Exception as e:
-            print(f"❌ Error loading logins.csv: {e}")
+            print(f"❌ Bot {self.bot_id} Error loading logins.csv: {e}")
             self.logins = [{'phone': '08057536473', 'password': 'people56'}]
 
     def clear_field(self, element):
         """Clear a field using multiple methods"""
         try:
-            # Click to focus
             element.click()
             time.sleep(0.1)
-            
-            # Select all and delete
             element.send_keys(Keys.CONTROL + "a")
             time.sleep(0.1)
             element.send_keys(Keys.DELETE)
             time.sleep(0.1)
-            
-            # JavaScript clear
             self.driver.execute_script("arguments[0].value = '';", element)
             time.sleep(0.1)
             return True
@@ -82,15 +78,10 @@ class NRCBot:
 
     def type_text(self, element, text):
         """Type text ONCE - CLEAR properly first"""
-        # Clear the field first
         self.clear_field(element)
-        
-        # Type the text
         for char in text:
             element.send_keys(char)
             time.sleep(0.05)
-        
-        # Verify
         entered = element.get_attribute('value')
         print(f"   📝 Typed: {entered} (length: {len(entered)})")
         time.sleep(0.2)
@@ -148,7 +139,7 @@ class NRCBot:
         return None
 
     def login(self, phone, password):
-        print(f"\n🔑 Logging in: {phone}")
+        print(f"\n🔑 Bot {self.bot_id} Logging in: {phone}")
         print(f"   📝 Password: {password} (length: {len(password)})")
         
         try:
@@ -164,12 +155,12 @@ class NRCBot:
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
             
-            # --- PASSWORD (ONCE) ---
+            # --- PASSWORD ---
             password_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
             )
             self.type_text(password_field, password)
-            print(f"   ✅ Password entered: {password[:3]}***")
+            print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
             # --- FIND AND CLICK LOGIN BUTTON ---
@@ -212,21 +203,20 @@ class NRCBot:
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
-            print("   ✅ Logged out")
+            print(f"   ✅ Logged out")
             self.screenshot("07_logged_out")
         except:
             pass
 
     def run(self):
         print("="*50)
-        print("🤖 ONE BOT - LOGIN TEST")
+        print(f"🤖 BOT {self.bot_id} STARTING")
         print("="*50)
 
         for login_data in self.logins:
             phone = login_data['phone']
             password = login_data['password']
-            print(f"\n📱 Account: {phone}")
-            print(f"📝 Password length: {len(password)}")
+            print(f"\n📱 Bot {self.bot_id} Account: {phone}")
             
             if self.login(phone, password):
                 self.logout()
@@ -237,8 +227,9 @@ class NRCBot:
             time.sleep(2)
 
         self.driver.quit()
-        print("\n✅ Done!")
+        print(f"\n✅ Bot {self.bot_id} Done!")
 
 if __name__ == "__main__":
-    bot = NRCBot()
+    bot_id = int(os.environ.get('BOT_ID', 1))
+    bot = NRCBot(bot_id=bot_id)
     bot.run()
