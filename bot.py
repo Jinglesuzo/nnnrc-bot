@@ -72,12 +72,18 @@ class NRCBot:
             sys.exit(1)
 
     def human_type(self, element, text):
+        """Type text ONCE with small delays between characters"""
+        # Clear the field first
         element.click()
         element.clear()
-        time.sleep(0.1)
+        time.sleep(0.2)
+        
+        # Type each character ONCE
         for char in text:
             element.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.15))
+            time.sleep(random.uniform(0.05, 0.12))
+        
+        # Small pause after typing
         time.sleep(0.2)
 
     def human_click(self, element):
@@ -114,7 +120,6 @@ class NRCBot:
             return False
 
     def click_login_button(self):
-        """Try EVERY possible way to click the login button"""
         print(f"   🔍 Looking for login button...")
         
         # Method 1: By text "Log in now"
@@ -152,24 +157,12 @@ class NRCBot:
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
                 if btn.is_displayed():
-                    # Check if it's green or primary
                     classes = btn.get_attribute('class') or ''
                     style = btn.get_attribute('style') or ''
                     if 'green' in classes.lower() or 'primary' in classes.lower() or 'login' in classes.lower():
                         print(f"   ✅ Found green button")
                         self.human_click(btn)
                         return True
-        except:
-            pass
-        
-        # Method 5: Last resort - find ANY visible button
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if btn.is_displayed() and btn.is_enabled():
-                    print(f"   ✅ Found any visible button")
-                    self.human_click(btn)
-                    return True
         except:
             pass
         
@@ -192,7 +185,7 @@ class NRCBot:
                     time.sleep(3)
                     continue
                 
-                # Phone field
+                # === PHONE FIELD ===
                 try:
                     phone_field = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
@@ -203,15 +196,15 @@ class NRCBot:
                     time.sleep(3)
                     continue
                 
-                phone_field.click()
-                phone_field.clear()
-                time.sleep(0.2)
+                # Type phone ONCE
                 self.human_type(phone_field, phone)
                 print(f"   ✅ Entered phone: {phone}")
                 
-                # Password field
+                # === PASSWORD FIELD ===
                 try:
-                    password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter login password']")
+                    password_field = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
+                    )
                 except:
                     try:
                         password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the login password']")
@@ -221,11 +214,9 @@ class NRCBot:
                         time.sleep(3)
                         continue
                 
-                password_field.click()
-                password_field.clear()
-                time.sleep(0.2)
+                # Type password ONCE
                 self.human_type(password_field, password)
-                print(f"   ✅ Entered password")
+                print(f"   ✅ Entered password: {password[:3]}***")
                 
                 # === CLICK LOGIN BUTTON ===
                 if self.click_login_button():
@@ -237,6 +228,7 @@ class NRCBot:
                 
                 time.sleep(4)
                 
+                # === CHECK LOGIN SUCCESS ===
                 page_source = self.driver.page_source.lower()
                 current_url = self.driver.current_url.lower()
                 
@@ -245,15 +237,10 @@ class NRCBot:
                     self.take_screenshot(f"login_success_{phone}")
                     return True
                 
-                if "log in now" in page_source.lower() or "login" in page_source.lower():
-                    if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
-                        print(f"   ❌ Invalid credentials")
-                        self.take_screenshot(f"login_invalid_{phone}")
-                        return False
-                    
-                    print(f"   ❌ Login failed, retrying...")
-                    time.sleep(2)
-                    continue
+                if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
+                    print(f"   ❌ Invalid credentials")
+                    self.take_screenshot(f"login_invalid_{phone}")
+                    return False
                 
                 print(f"   ❌ Login failed, retrying...")
                 time.sleep(2)
