@@ -1,4 +1,4 @@
-name: NRC Multi-Bot
+name: NRC Login Test
 
 on:
   workflow_dispatch:
