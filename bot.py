@@ -121,19 +121,16 @@ class NRCBot:
 
     # === FIND GREEN LOGIN BUTTON ===
     def find_login_button(self):
-        """Find the green 'Log in now' button using multiple methods"""
         print(f"   🔍 Looking for login button...")
         
-        # Method 1: By exact text "Log in now"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
             if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Log in now' (exact text)")
+                print(f"   ✅ Found 'Log in now'")
                 return btn
         except:
             pass
         
-        # Method 2: By contains text "Log in now"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
             if btn.is_displayed() and btn.is_enabled():
@@ -142,7 +139,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 3: By text "Login" or "Log in"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in')]")
             if btn.is_displayed() and btn.is_enabled():
@@ -151,47 +147,11 @@ class NRCBot:
         except:
             pass
         
-        # Method 4: By button type "submit"
         try:
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             if btn.is_displayed() and btn.is_enabled():
                 print(f"   ✅ Found submit button")
                 return btn
-        except:
-            pass
-        
-        # Method 5: By green color or class
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if btn.is_displayed() and btn.is_enabled():
-                    # Check for green color
-                    bg_color = btn.value_of_css_property("background-color")
-                    # Green is typically rgb(0, 128, 0) or similar
-                    if "green" in str(bg_color).lower() or "rgb" in str(bg_color):
-                        print(f"   ✅ Found green button")
-                        return btn
-        except:
-            pass
-        
-        # Method 6: By class containing "login" or "green"
-        try:
-            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='login'], button[class*='green'], button[class*='primary']")
-            if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found by class")
-                return btn
-        except:
-            pass
-        
-        # Method 7: Any visible button with text containing "log" or "in"
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if btn.is_displayed() and btn.is_enabled():
-                    text = btn.text.lower()
-                    if 'log' in text or 'in' in text or 'submit' in text:
-                        print(f"   ✅ Found button with text: '{btn.text}'")
-                        return btn
         except:
             pass
         
@@ -247,9 +207,15 @@ class NRCBot:
                 time.sleep(5)
                 self.screenshot("after_login_wait")
                 
-                # Check if login successful
+                # Check if login successful - LOOK FOR "Important Notice" TOO
                 page_source = self.driver.page_source.lower()
                 current_url = self.driver.current_url.lower()
+                
+                # SUCCESS: Important Notice means login worked!
+                if "important notice" in page_source:
+                    print(f"   ✅ Login SUCCESS! (Important Notice found)")
+                    self.screenshot("login_success_important_notice")
+                    return True
                 
                 if "cooperative wealth zone" in page_source or "dashboard" in current_url:
                     print(f"   ✅ Login SUCCESS!")
@@ -276,44 +242,53 @@ class NRCBot:
 
     # === HANDLE POPUPS ===
     def handle_popups(self):
-        print("   📋 Checking for popups...")
+        print("   📋 Handling Important Notice popup...")
         self.screenshot("before_popup_handling")
         
         # Look for Important Notice
         try:
             important_notice = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Important Notice')]")
             if important_notice.is_displayed():
-                print("   📋 Found Important Notice")
+                print("   📋 Found Important Notice popup")
                 self.screenshot("important_notice_found")
                 
-                # Look for NEWS button
+                # Look for NEWS button (green button that says NEWS)
                 try:
-                    news_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'NEWS')] | //*[contains(text(), 'News')]")
-                    if news_btn.is_displayed():
+                    news_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'NEWS')] | //*[contains(text(), 'News')] | //button[contains(text(), 'NEWS')]")
+                    if news_btn.is_displayed() and news_btn.is_enabled():
                         self.click_element(news_btn)
                         print("   📰 Clicked NEWS button")
                         self.screenshot("after_news_click")
-                        time.sleep(2)
-                except:
-                    print("   ⚠️ NEWS button not found")
-                
-                # Close any popups
-                time.sleep(1)
+                        time.sleep(3)
+                except Exception as e:
+                    print(f"   ⚠️ NEWS button not found: {e}")
+                    # Try to find any green button
+                    try:
+                        green_btns = self.driver.find_elements(By.XPATH, "//button[contains(@style, 'green')] | //*[contains(@class, 'green')]")
+                        for btn in green_btns:
+                            if btn.is_displayed() and btn.is_enabled():
+                                self.click_element(btn)
+                                print("   📰 Clicked green button (NEWS)")
+                                self.screenshot("after_news_click")
+                                time.sleep(3)
+                                break
+                    except:
+                        pass
                 
                 # Close Welcome popup if present
                 try:
                     welcome_close = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Got it')] | //button[contains(text(), 'OK')] | //*[contains(@class, 'modal-close')] | //*[text()='×']")
-                    if welcome_close.is_displayed():
+                    if welcome_close.is_displayed() and welcome_close.is_enabled():
                         self.click_element(welcome_close)
-                        print("   🚫 Closed popup")
+                        print("   🚫 Closed Welcome popup")
                         self.screenshot("after_popup_close")
                         time.sleep(1)
                 except:
                     pass
                 
-                # Close any remaining ads
+                # Close any remaining ads/popups
                 try:
-                    close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×'] | //button[contains(@class, 'btn-close')]")
+                    close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×'] | //*[text()='✕'] | //button[contains(@class, 'btn-close')]")
                     for btn in close_btns:
                         if btn.is_displayed() and btn.is_enabled():
                             self.click_element(btn)
@@ -323,11 +298,12 @@ class NRCBot:
                     pass
                 
                 self.screenshot("after_all_popups")
+                print("   ✅ Popups handled successfully")
                 return True
         except:
             pass
         
-        print("   ✅ No popups found or already handled")
+        print("   ✅ No popups found")
         self.screenshot("no_popups")
         return True
 
@@ -467,7 +443,6 @@ class NRCBot:
             self.click_withdrawal()
             time.sleep(2)
             
-            # Select withdrawal method
             method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
             self.click_element(method_select)
             time.sleep(1)
@@ -477,12 +452,10 @@ class NRCBot:
             print("   💳 Selected OPAY")
             time.sleep(1)
             
-            # Enter fund password
             fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
             self.type_text(fund_input, fund_password)
             print("   🔑 Entered fund password")
             
-            # Enter amount
             amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
             self.type_text(amount_input, amount)
             print(f"   💰 Entered amount: {amount}")
