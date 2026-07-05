@@ -38,9 +38,9 @@ jobs:
           BOT_ID: ${{ matrix.bot }}
           START_INDEX: ${{ matrix.start_index }}
 
-      - name: Upload results
+      - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: bot-${{ matrix.bot }}-results
+          name: bot-${{ matrix.bot }}-screenshots
           path: bot*.png
