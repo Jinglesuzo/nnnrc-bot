@@ -17,7 +17,6 @@ class NRCBot:
         self.start_index = start_index
         self.logins = []
         self.step_counter = 0
-        self.password_typed = False  # Track if password was typed
 
         self.load_logins()
 
@@ -73,21 +72,29 @@ class NRCBot:
         except:
             return False
 
-    def type_text_once(self, element, text):
-        """Type text ONLY ONCE - properly cleared"""
+    def clear_and_type(self, element, text):
+        """CLEAR the field and type text ONCE - guaranteed"""
         try:
-            # Click and clear
-            element.click()
-            time.sleep(0.2)
-            element.clear()
+            # Click to focus
+            self.driver.execute_script("arguments[0].focus();", element)
             time.sleep(0.1)
             
-            # Type each character ONCE
+            # Select all and delete (most reliable)
+            element.send_keys(Keys.CONTROL + "a")
+            time.sleep(0.05)
+            element.send_keys(Keys.DELETE)
+            time.sleep(0.05)
+            
+            # Also clear using JavaScript
+            self.driver.execute_script("arguments[0].value = '';", element)
+            time.sleep(0.05)
+            
+            # Type the text ONCE
             for char in text:
                 element.send_keys(char)
-                time.sleep(random.uniform(0.03, 0.07))
+                time.sleep(random.uniform(0.03, 0.06))
             
-            # Verify the value
+            # Verify
             time.sleep(0.1)
             return True
         except Exception as e:
@@ -131,7 +138,7 @@ class NRCBot:
         try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
             if btn.is_displayed() and btn.is_enabled():
-                print(f"   ✅ Found 'Log in now' (contains)")
+                print(f"   ✅ Found 'Log in now'")
                 return btn
         except:
             pass
@@ -169,7 +176,6 @@ class NRCBot:
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
         print(f"   📝 Password: {password}")
-        self.password_typed = False  # Reset flag
         
         try:
             self.driver.get("https://nnnrc.com/#/login")
@@ -185,7 +191,7 @@ class NRCBot:
             phone_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
             )
-            self.type_text_once(phone_field, phone)
+            self.clear_and_type(phone_field, phone)
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
             
@@ -193,9 +199,8 @@ class NRCBot:
             password_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
             )
-            self.type_text_once(password_field, password)
-            self.password_typed = True
-            print(f"   ✅ Password entered (once)")
+            self.clear_and_type(password_field, password)
+            print(f"   ✅ Password: {password} (typed once)")
             self.screenshot("03_password_entered")
             
             # --- LOGIN BUTTON ---
