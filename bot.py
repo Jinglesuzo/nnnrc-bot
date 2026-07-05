@@ -54,21 +54,34 @@ class NRCBot:
                             'password': row[1].strip()
                         })
             print(f"📋 Loaded {len(self.logins)} login(s)")
-        except:
-            print("❌ No logins.csv found")
+        except Exception as e:
+            print(f"❌ Error loading logins.csv: {e}")
             self.logins = [{'phone': '08057536473', 'password': 'people56'}]
 
     def type_text(self, element, text):
-        """Type text ONCE"""
+        """Type text ONCE - exactly as provided"""
         element.click()
-        time.sleep(0.1)
+        time.sleep(0.2)
         element.clear()
-        time.sleep(0.1)
-        element.send_keys(text)
-        time.sleep(0.1)
+        time.sleep(0.2)
+        
+        # Type each character one by one (more reliable)
+        for char in text:
+            element.send_keys(char)
+            time.sleep(0.05)
+        
+        # Verify the text was entered
+        entered = element.get_attribute('value')
+        print(f"   📝 Typed: {entered} (length: {len(entered)})")
+        
+        # Check if password length is 7 (just222)
+        if len(entered) == 7:
+            print(f"   ✅ Password is 7 characters - ready to login!")
+        
+        time.sleep(0.2)
 
     def click_element(self, element):
-        """Click using JavaScript (most reliable)"""
+        """Click using JavaScript"""
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
         time.sleep(0.3)
         self.driver.execute_script("arguments[0].click();", element)
@@ -77,9 +90,7 @@ class NRCBot:
         """Find the green 'Log in now' button"""
         print("   🔍 Looking for login button...")
         
-        # Try multiple ways to find it
         try:
-            # By exact text
             btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
             print("   ✅ Found 'Log in now'")
             return btn
@@ -87,7 +98,6 @@ class NRCBot:
             pass
         
         try:
-            # By contains text
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
             print("   ✅ Found 'Log in now' (contains)")
             return btn
@@ -95,7 +105,6 @@ class NRCBot:
             pass
         
         try:
-            # By type submit
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             print("   ✅ Found submit button")
             return btn
@@ -103,15 +112,13 @@ class NRCBot:
             pass
         
         try:
-            # By CSS selector - any button with green class
-            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='login'], button[class*='primary']")
+            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='login']")
             print("   ✅ Found button by class")
             return btn
         except:
             pass
         
         try:
-            # Any visible button with 'log' or 'in' in text
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
                 if btn.is_displayed():
@@ -127,9 +134,9 @@ class NRCBot:
 
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
+        print(f"   📝 Password: {password} (length: {len(password)})")
         
         try:
-            # Load login page
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(2)
             self.screenshot("01_login_page")
@@ -142,15 +149,18 @@ class NRCBot:
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
             
-            # --- PASSWORD ---
+            # --- PASSWORD (ONCE) ---
             password_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter login password']"))
             )
             self.type_text(password_field, password)
-            print(f"   ✅ Password: {password[:3]}***")
+            print(f"   ✅ Password entered: {password[:3]}***")
             self.screenshot("03_password_entered")
             
-            # --- FIND AND CLICK GREEN LOGIN BUTTON ---
+            # --- WAIT FOR PASSWORD TO BE FULLY TYPED ---
+            time.sleep(1)
+            
+            # --- FIND AND CLICK LOGIN BUTTON ---
             login_btn = self.find_login_button()
             if login_btn:
                 self.click_element(login_btn)
@@ -161,7 +171,6 @@ class NRCBot:
                 self.screenshot("04_login_button_not_found")
                 return False
             
-            # Wait for response
             time.sleep(5)
             self.screenshot("05_after_login_wait")
             
@@ -205,11 +214,15 @@ class NRCBot:
             phone = login_data['phone']
             password = login_data['password']
             print(f"\n📱 Account: {phone}")
+            print(f"📝 Password length: {len(password)}")
             
             if self.login(phone, password):
                 self.logout()
+                print(f"   ✅ SUCCESS for {phone}")
             else:
-                print(f"   ❌ Login FAILED for {phone}")
+                print(f"   ❌ FAILED for {phone}")
+            
+            time.sleep(2)
 
         self.driver.quit()
         print("\n✅ Done!")
