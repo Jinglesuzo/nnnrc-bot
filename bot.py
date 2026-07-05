@@ -14,6 +14,7 @@ class NRCBot:
     def __init__(self, bot_id=1):
         self.bot_id = bot_id
         self.step = 0
+        self.logged_in_accounts = []  # Track successful logins
         self.load_logins()
 
         options = Options()
@@ -97,8 +98,7 @@ class NRCBot:
                 "//*[contains(@class, 'password-toggle')]",
                 "//*[contains(@class, 'toggle-password')]",
                 "//button[@type='button']",
-                "//*[contains(@class, 'fa-eye')]",
-                "//span[contains(@class, 'password-toggle')]"
+                "//*[contains(@class, 'fa-eye')]"
             ]
             
             for selector in eye_selectors:
@@ -112,31 +112,8 @@ class NRCBot:
                         return True
                 except:
                     pass
-            
-            css_selectors = [
-                "button[type='button']",
-                ".eye-icon",
-                ".password-toggle",
-                ".show-password"
-            ]
-            
-            for selector in css_selectors:
-                try:
-                    eye_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if eye_btn.is_displayed() and eye_btn.is_enabled():
-                        self.click_element(eye_btn)
-                        print("   👁️ Clicked show password (CSS)")
-                        time.sleep(0.5)
-                        self.screenshot("password_shown")
-                        return True
-                except:
-                    pass
-            
-            print("   ⚠️ Could not find show password button")
             return False
-            
-        except Exception as e:
-            print(f"   ⚠️ Show password error: {e}")
+        except:
             return False
 
     def find_login_button(self):
@@ -259,12 +236,14 @@ class NRCBot:
                 if indicator in page_source:
                     print(f"   ✅✅✅ LOGIN SUCCESS! Found: '{indicator}'")
                     self.screenshot("07_login_success")
+                    self.logged_in_accounts.append(phone)
                     return True
             
             # Check URL for success
             if "dashboard" in current_url or "home" in current_url or "user" in current_url:
                 print(f"   ✅✅✅ LOGIN SUCCESS! URL: {current_url}")
                 self.screenshot("07_login_success")
+                self.logged_in_accounts.append(phone)
                 return True
             
             # Check for login failure
@@ -288,14 +267,16 @@ class NRCBot:
             self.screenshot("error")
             return False
 
-    def logout(self):
+    def logout_all(self):
+        """Logout once at the very end"""
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
-            print(f"   ✅ Logged out")
+            print(f"   ✅ Logged out all accounts")
             self.screenshot("08_logged_out")
+            return True
         except:
-            pass
+            return False
 
     def run(self):
         print("="*50)
@@ -308,15 +289,21 @@ class NRCBot:
             print(f"\n📱 Bot {self.bot_id} Account: {phone}")
             
             if self.login(phone, password):
-                self.logout()
                 print(f"   ✅ SUCCESS for {phone}")
             else:
                 print(f"   ❌ FAILED for {phone}")
             
             time.sleep(2)
 
+        # --- LOGOUT ONCE AT THE END ---
+        if self.logged_in_accounts:
+            self.logout_all()
+        else:
+            print("   ⚠️ No accounts were logged in successfully")
+
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
+        print(f"📊 Successful logins: {len(self.logged_in_accounts)}")
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
