@@ -1,12 +1,19 @@
-name: NNNRC Bot
+name: NRC Multi-Bot
 
 on:
   workflow_dispatch:
 
 jobs:
-  run-bot:
+  run-bots:
     runs-on: ubuntu-latest
-    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - bot: 1
+            start_index: 0
+          - bot: 2
+            start_index: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -16,23 +23,24 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
       - name: Run bot
         run: python bot.py
+        env:
+          BOT_ID: ${{ matrix.bot }}
+          START_INDEX: ${{ matrix.start_index }}
 
-      - name: Upload accounts
+      - name: Upload results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: accounts
-          path: accounts.csv
-
-      - name: Upload screenshots
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots
-          path: "*.png"
+          name: bot-${{ matrix.bot }}-results
+          path: bot*.png
