@@ -224,16 +224,22 @@ class NRCBot:
                 self.screenshot("05_login_button_not_found")
                 return False
             
-            # --- WAIT LONGER FOR PAGE TO LOAD ---
-            print("   ⏳ Waiting 8 seconds for login to process...")
-            time.sleep(8)
+            # --- WAIT FOR PAGE TO LOAD ---
+            print("   ⏳ Waiting 10 seconds for login to process...")
+            time.sleep(10)
             self.screenshot("06_after_login_wait")
             
-            # --- CHECK SUCCESS WITH MULTIPLE INDICATORS ---
+            # --- CHECK CURRENT STATE ---
+            current_url = self.driver.current_url
             page_source = self.driver.page_source.lower()
-            current_url = self.driver.current_url.lower()
             
             print(f"   📍 Current URL: {current_url}")
+            
+            # Check if we're on the logout page (login failed)
+            if "/logout" in current_url:
+                print(f"   ❌ Redirected to logout - login failed")
+                self.screenshot("07_login_failed_redirect")
+                return False
             
             # Check for success indicators
             success_indicators = [
@@ -245,7 +251,8 @@ class NRCBot:
                 "wealth center",
                 "wish book",
                 "surprise code",
-                "deposit principal"
+                "deposit principal",
+                "welcome"
             ]
             
             for indicator in success_indicators:
@@ -254,9 +261,9 @@ class NRCBot:
                     self.screenshot("07_login_success")
                     return True
             
-            # Check URL
+            # Check URL for success
             if "dashboard" in current_url or "home" in current_url or "user" in current_url:
-                print(f"   ✅✅✅ LOGIN SUCCESS! URL changed to: {current_url}")
+                print(f"   ✅✅✅ LOGIN SUCCESS! URL: {current_url}")
                 self.screenshot("07_login_success")
                 return True
             
