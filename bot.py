@@ -106,6 +106,15 @@ class NRCBot:
         except:
             return False
 
+    def refresh_page(self):
+        try:
+            self.driver.refresh()
+            time.sleep(3)
+            print("   🔄 Page refreshed")
+            return True
+        except:
+            return False
+
     def show_password(self):
         try:
             eye_selectors = [
@@ -216,7 +225,7 @@ class NRCBot:
         return True
 
     # ============================================
-    # TASKS - WITH SCROLLING
+    # TASKS - WITH REFRESH FOR SECOND ACCOUNT
     # ============================================
 
     def click_task_tab(self):
@@ -280,6 +289,7 @@ class NRCBot:
     def do_tasks(self):
         print("   📋 Starting tasks...")
         
+        # Click Task tab
         self.click_task_tab()
         time.sleep(2)
         self.screenshot("tasks_page")
@@ -287,11 +297,22 @@ class NRCBot:
         total_tasks = 0
         max_tasks = 6
         
+        # If no tasks found, refresh the page
+        read_btns = self.find_all_read_buttons()
+        visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
+        
+        if not visible_btns:
+            print("   ⚠️ No tasks found - refreshing page...")
+            self.refresh_page()
+            self.screenshot("after_refresh")
+            self.click_task_tab()
+            time.sleep(2)
+            # Try again after refresh
+            read_btns = self.find_all_read_buttons()
+            visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
+        
         while total_tasks < max_tasks:
             try:
-                read_btns = self.find_all_read_buttons()
-                visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
-                
                 if not visible_btns:
                     print(f"   ℹ️ No more tasks found (completed {total_tasks})")
                     self.screenshot("no_more_tasks")
@@ -309,6 +330,9 @@ class NRCBot:
                 print(f"   ⏳ Waiting 20 seconds for task {total_tasks} to complete...")
                 time.sleep(20)
                 self.screenshot(f"task_{total_tasks}_done")
+                
+                # Remove task from list and get next
+                visible_btns.pop(0)
                 
                 try:
                     close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×']")
@@ -341,7 +365,6 @@ class NRCBot:
         print(f"\n🔑 Bot {self.bot_id} Logging in: {phone}")
         
         try:
-            # First, make sure we're on the login page
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(2)
             self.screenshot("01_login_page")
@@ -432,7 +455,6 @@ class NRCBot:
     # ============================================
 
     def process_account(self, phone, password):
-        """Login → Remove Important Notice → Do 6 tasks → Stay logged in"""
         if not self.login(phone, password):
             return False
         
@@ -445,7 +467,6 @@ class NRCBot:
         return True
 
     def logout_all(self):
-        """Only logout at the very end"""
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
@@ -474,10 +495,8 @@ class NRCBot:
             else:
                 print(f"   ❌ FAILED for {phone}")
             
-            # Wait between accounts but DON'T LOGOUT
             time.sleep(3)
 
-        # Only logout once at the very end
         if self.logged_in_accounts:
             self.logout_all()
         else:
