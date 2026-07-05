@@ -4,6 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.keys import Keys
 import time
 import csv
 import os
@@ -58,26 +59,40 @@ class NRCBot:
             print(f"❌ Error loading logins.csv: {e}")
             self.logins = [{'phone': '08057536473', 'password': 'people56'}]
 
+    def clear_field(self, element):
+        """Clear a field using multiple methods"""
+        try:
+            # Click to focus
+            element.click()
+            time.sleep(0.1)
+            
+            # Select all and delete
+            element.send_keys(Keys.CONTROL + "a")
+            time.sleep(0.1)
+            element.send_keys(Keys.DELETE)
+            time.sleep(0.1)
+            
+            # JavaScript clear
+            self.driver.execute_script("arguments[0].value = '';", element)
+            time.sleep(0.1)
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Clear error: {e}")
+            return False
+
     def type_text(self, element, text):
-        """Type text ONCE - exactly as provided"""
-        element.click()
-        time.sleep(0.2)
-        element.clear()
-        time.sleep(0.2)
+        """Type text ONCE - CLEAR properly first"""
+        # Clear the field first
+        self.clear_field(element)
         
-        # Type each character one by one (more reliable)
+        # Type the text
         for char in text:
             element.send_keys(char)
             time.sleep(0.05)
         
-        # Verify the text was entered
+        # Verify
         entered = element.get_attribute('value')
         print(f"   📝 Typed: {entered} (length: {len(entered)})")
-        
-        # Check if password length is 7 (just222)
-        if len(entered) == 7:
-            print(f"   ✅ Password is 7 characters - ready to login!")
-        
         time.sleep(0.2)
 
     def click_element(self, element):
@@ -156,9 +171,6 @@ class NRCBot:
             self.type_text(password_field, password)
             print(f"   ✅ Password entered: {password[:3]}***")
             self.screenshot("03_password_entered")
-            
-            # --- WAIT FOR PASSWORD TO BE FULLY TYPED ---
-            time.sleep(1)
             
             # --- FIND AND CLICK LOGIN BUTTON ---
             login_btn = self.find_login_button()
