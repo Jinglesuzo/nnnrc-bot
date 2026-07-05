@@ -72,7 +72,6 @@ class NRCBot:
             print(f"❌ Bot {self.bot_id} Failed to load logins: {e}")
             sys.exit(1)
 
-    # === SCREENSHOT ===
     def screenshot(self, name):
         self.step_counter += 1
         try:
@@ -80,11 +79,9 @@ class NRCBot:
             self.driver.save_screenshot(filename)
             print(f"   📸 {filename}")
             return True
-        except Exception as e:
-            print(f"   ⚠️ Screenshot error: {e}")
+        except:
             return False
 
-    # === TYPE TEXT ONCE ===
     def type_text(self, element, text):
         try:
             element.click()
@@ -99,7 +96,6 @@ class NRCBot:
             print(f"   ⚠️ Type error: {e}")
             return False
 
-    # === CLICK ELEMENT ===
     def click_element(self, element):
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
@@ -113,7 +109,6 @@ class NRCBot:
             except:
                 return False
 
-    # === WAIT FOR PAGE LOAD ===
     def wait_for_page(self, timeout=30):
         try:
             WebDriverWait(self.driver, timeout).until(
@@ -123,6 +118,86 @@ class NRCBot:
         except TimeoutException:
             print(f"   ⏰ Page load timeout")
             return False
+
+    # === FIND GREEN LOGIN BUTTON ===
+    def find_login_button(self):
+        """Find the green 'Log in now' button using multiple methods"""
+        print(f"   🔍 Looking for login button...")
+        
+        # Method 1: By exact text "Log in now"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
+            if btn.is_displayed() and btn.is_enabled():
+                print(f"   ✅ Found 'Log in now' (exact text)")
+                return btn
+        except:
+            pass
+        
+        # Method 2: By contains text "Log in now"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            if btn.is_displayed() and btn.is_enabled():
+                print(f"   ✅ Found 'Log in now' (contains)")
+                return btn
+        except:
+            pass
+        
+        # Method 3: By text "Login" or "Log in"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in')]")
+            if btn.is_displayed() and btn.is_enabled():
+                print(f"   ✅ Found 'Log in'")
+                return btn
+        except:
+            pass
+        
+        # Method 4: By button type "submit"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+            if btn.is_displayed() and btn.is_enabled():
+                print(f"   ✅ Found submit button")
+                return btn
+        except:
+            pass
+        
+        # Method 5: By green color or class
+        try:
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                if btn.is_displayed() and btn.is_enabled():
+                    # Check for green color
+                    bg_color = btn.value_of_css_property("background-color")
+                    # Green is typically rgb(0, 128, 0) or similar
+                    if "green" in str(bg_color).lower() or "rgb" in str(bg_color):
+                        print(f"   ✅ Found green button")
+                        return btn
+        except:
+            pass
+        
+        # Method 6: By class containing "login" or "green"
+        try:
+            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='login'], button[class*='green'], button[class*='primary']")
+            if btn.is_displayed() and btn.is_enabled():
+                print(f"   ✅ Found by class")
+                return btn
+        except:
+            pass
+        
+        # Method 7: Any visible button with text containing "log" or "in"
+        try:
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                if btn.is_displayed() and btn.is_enabled():
+                    text = btn.text.lower()
+                    if 'log' in text or 'in' in text or 'submit' in text:
+                        print(f"   ✅ Found button with text: '{btn.text}'")
+                        return btn
+        except:
+            pass
+        
+        print(f"   ❌ No login button found")
+        self.screenshot("login_button_not_found")
+        return None
 
     # === LOGIN ===
     def login(self, phone, password):
@@ -148,6 +223,7 @@ class NRCBot:
                 )
                 self.type_text(phone_field, phone)
                 print(f"   ✅ Phone: {phone}")
+                self.screenshot("phone_entered")
                 
                 # Password
                 password_field = WebDriverWait(self.driver, 10).until(
@@ -155,16 +231,18 @@ class NRCBot:
                 )
                 self.type_text(password_field, password)
                 print(f"   ✅ Password entered")
+                self.screenshot("password_entered")
                 
-                # Login button
-                try:
-                    login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-                except:
-                    login_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-                
-                self.click_element(login_btn)
-                print(f"   ✅ Clicked login")
-                self.screenshot("after_login_click")
+                # Find and click login button
+                login_btn = self.find_login_button()
+                if login_btn:
+                    self.click_element(login_btn)
+                    print(f"   ✅ Clicked login")
+                    self.screenshot("after_login_click")
+                else:
+                    print(f"   ❌ No login button found, retrying...")
+                    time.sleep(1)
+                    continue
                 
                 time.sleep(5)
                 self.screenshot("after_login_wait")
