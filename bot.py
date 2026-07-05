@@ -11,8 +11,7 @@ import os
 import sys
 
 class NRCBot:
-    def __init__(self, bot_id=1):
-        self.bot_id = bot_id
+    def __init__(self):
         self.step = 0
         self.logged_in_accounts = []
         self.load_logins()
@@ -24,21 +23,21 @@ class NRCBot:
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
 
-        print(f"🤖 Bot {self.bot_id} Starting Chrome...")
+        print("🤖 Starting Chrome...")
         try:
             service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
-            print(f"✅ Bot {self.bot_id} Chrome started!")
+            print("✅ Chrome started!")
         except:
             from webdriver_manager.chrome import ChromeDriverManager
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
-            print(f"✅ Bot {self.bot_id} Chrome started!")
+            print("✅ Chrome started!")
 
     def screenshot(self, name):
         self.step += 1
         try:
-            filename = f"bot{self.bot_id}_{self.step:03d}_{name}.png"
+            filename = f"bot_{self.step:03d}_{name}.png"
             self.driver.save_screenshot(filename)
             print(f"   📸 {filename}")
         except:
@@ -56,9 +55,9 @@ class NRCBot:
                             'phone': row[0].strip(),
                             'password': row[1].strip()
                         })
-            print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
+            print(f"📋 Loaded {len(self.logins)} login(s)")
         except Exception as e:
-            print(f"❌ Bot {self.bot_id} Error loading logins.csv: {e}")
+            print(f"❌ Error loading logins.csv: {e}")
             self.logins = [{'phone': '08057536473', 'password': 'people56'}]
 
     def clear_field(self, element):
@@ -104,6 +103,27 @@ class NRCBot:
             time.sleep(0.3)
             return True
         except:
+            return False
+
+    def refresh_page(self):
+        try:
+            self.driver.refresh()
+            time.sleep(3)
+            print("   🔄 Page refreshed")
+            return True
+        except:
+            return False
+
+    def go_to_login_page(self):
+        """Always go to the login page first"""
+        try:
+            self.driver.get("https://nnnrc.com/#/login")
+            time.sleep(2)
+            print("   ✅ Navigated to login page")
+            self.screenshot("login_page")
+            return True
+        except Exception as e:
+            print(f"   ❌ Failed to go to login page: {e}")
             return False
 
     def show_password(self):
@@ -216,7 +236,7 @@ class NRCBot:
         return True
 
     # ============================================
-    # TASKS - WITH SCROLLING
+    # TASKS
     # ============================================
 
     def click_task_tab(self):
@@ -287,11 +307,20 @@ class NRCBot:
         total_tasks = 0
         max_tasks = 6
         
+        read_btns = self.find_all_read_buttons()
+        visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
+        
+        if not visible_btns:
+            print("   ⚠️ No tasks found - refreshing page...")
+            self.refresh_page()
+            self.screenshot("after_refresh")
+            self.click_task_tab()
+            time.sleep(2)
+            read_btns = self.find_all_read_buttons()
+            visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
+        
         while total_tasks < max_tasks:
             try:
-                read_btns = self.find_all_read_buttons()
-                visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
-                
                 if not visible_btns:
                     print(f"   ℹ️ No more tasks found (completed {total_tasks})")
                     self.screenshot("no_more_tasks")
@@ -309,6 +338,8 @@ class NRCBot:
                 print(f"   ⏳ Waiting 20 seconds for task {total_tasks} to complete...")
                 time.sleep(20)
                 self.screenshot(f"task_{total_tasks}_done")
+                
+                visible_btns.pop(0)
                 
                 try:
                     close_btns = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'close')] | //*[text()='×']")
@@ -338,13 +369,11 @@ class NRCBot:
     # ============================================
 
     def login(self, phone, password):
-        print(f"\n🔑 Bot {self.bot_id} Logging in: {phone}")
+        print(f"\n🔑 Logging in: {phone}")
         
         try:
-            # First, make sure we're on the login page
-            self.driver.get("https://nnnrc.com/#/login")
-            time.sleep(2)
-            self.screenshot("01_login_page")
+            # STEP 1: ALWAYS go to login page first
+            self.go_to_login_page()
             
             phone_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
@@ -432,7 +461,6 @@ class NRCBot:
     # ============================================
 
     def process_account(self, phone, password):
-        """Login → Remove Important Notice → Do 6 tasks → Stay logged in"""
         if not self.login(phone, password):
             return False
         
@@ -445,11 +473,10 @@ class NRCBot:
         return True
 
     def logout_all(self):
-        """Only logout at the very end"""
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
-            print(f"   ✅ Logged out all accounts")
+            print(f"   ✅ Logged out")
             self.screenshot("08_logged_out")
             return True
         except:
@@ -461,33 +488,29 @@ class NRCBot:
 
     def run(self):
         print("="*50)
-        print(f"🤖 BOT {self.bot_id} STARTING")
+        print("🤖 ACCOUNT BOT STARTING")
         print("="*50)
 
         for login_data in self.logins:
             phone = login_data['phone']
             password = login_data['password']
-            print(f"\n📱 Bot {self.bot_id} Account: {phone}")
+            print(f"\n📱 Account: {phone}")
             
             if self.process_account(phone, password):
                 print(f"   ✅ SUCCESS for {phone}")
             else:
                 print(f"   ❌ FAILED for {phone}")
             
-            # Wait between accounts but DON'T LOGOUT
             time.sleep(3)
 
-        # Only logout once at the very end
         if self.logged_in_accounts:
             self.logout_all()
         else:
             print("   ⚠️ No accounts were processed successfully")
 
         self.driver.quit()
-        print(f"\n✅ Bot {self.bot_id} Done!")
-        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")
+        print(f"\n✅ Done!")
 
 if __name__ == "__main__":
-    bot_id = int(os.environ.get('BOT_ID', 1))
-    bot = NRCBot(bot_id=bot_id)
+    bot = NRCBot()
     bot.run()
