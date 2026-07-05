@@ -77,20 +77,37 @@ class NRCBot:
     # === HUMAN BEHAVIOR ===
 
     def human_type(self, element, text):
+        """Type like a human with random delays - CLEARED VERSION"""
+        # Clear the field first
+        element.click()
+        element.clear()
+        time.sleep(0.1)
+        
+        # Type character by character with small delays
         for char in text:
             element.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.2))
+            time.sleep(random.uniform(0.05, 0.15))
+        
+        # Verify the text was entered correctly
+        time.sleep(0.2)
 
     def human_click(self, element):
         try:
-            actions = ActionChains(self.driver)
-            actions.move_to_element(element).perform()
-            time.sleep(random.uniform(0.2, 0.6))
-            element.click()
-            return True
-        except:
+            # Scroll to element
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+            time.sleep(0.3)
+            # Click with JavaScript (more reliable)
             self.driver.execute_script("arguments[0].click();", element)
             return True
+        except:
+            try:
+                actions = ActionChains(self.driver)
+                actions.move_to_element(element).perform()
+                time.sleep(0.2)
+                element.click()
+                return True
+            except:
+                return False
 
     def random_pause(self, min_sec=0.5, max_sec=2.0):
         time.sleep(random.uniform(min_sec, max_sec))
@@ -112,7 +129,7 @@ class NRCBot:
             print(f"   ⏰ Page load timeout (30s)")
             return False
 
-    # === LOGIN WITH RETRY (FIXED SELECTORS) ===
+    # === LOGIN WITH RETRY (FIXED) ===
 
     def login(self, phone, password):
         print(f"\n🔑 Logging in: {phone}")
@@ -121,15 +138,17 @@ class NRCBot:
             try:
                 print(f"   Attempt {attempt + 1}/{self.max_login_retries}")
                 
+                # Clear everything and load fresh
                 self.driver.get("https://nnnrc.com/#/login")
+                time.sleep(2)
                 
                 if not self.wait_for_page_load(30):
                     print(f"   ⏰ Page load timeout, reloading...")
                     self.driver.refresh()
-                    time.sleep(2)
+                    time.sleep(3)
                     continue
                 
-                # === FIXED SELECTORS ===
+                # === FIND PHONE FIELD ===
                 try:
                     phone_field = WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
@@ -137,56 +156,84 @@ class NRCBot:
                 except TimeoutException:
                     print(f"   ⏰ Phone field not found, reloading...")
                     self.driver.refresh()
-                    time.sleep(2)
+                    time.sleep(3)
                     continue
                 
+                # === ENTER PHONE NUMBER (CLEARED) ===
+                phone_field.click()
                 phone_field.clear()
+                time.sleep(0.2)
                 self.human_type(phone_field, phone)
                 print(f"   ✅ Entered phone: {phone}")
                 
+                # === FIND PASSWORD FIELD ===
                 try:
-                    # FIXED: Removed "the" from the placeholder
                     password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter login password']")
                 except NoSuchElementException:
-                    # Fallback: try the old selector
                     try:
                         password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the login password']")
                     except:
                         print(f"   ⏰ Password field not found, reloading...")
                         self.driver.refresh()
-                        time.sleep(2)
+                        time.sleep(3)
                         continue
                 
+                # === ENTER PASSWORD (CLEARED, ONCE) ===
+                password_field.click()
                 password_field.clear()
+                time.sleep(0.2)
                 self.human_type(password_field, password)
                 print(f"   ✅ Entered password: {password[:3]}***")
                 
-                # Find and click login button
+                # === FIND AND CLICK LOGIN BUTTON ===
                 try:
-                    login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+                    # Try "Log in now" first
+                    login_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Log in now')]"))
+                    )
                 except:
-                    login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+                    try:
+                        # Try "Login" as fallback
+                        login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+                    except:
+                        print(f"   ⏰ Login button not found, reloading...")
+                        self.driver.refresh()
+                        time.sleep(3)
+                        continue
                 
+                # === CLICK LOGIN ===
                 self.human_click(login_btn)
-                print(f"   ✅ Clicked Login button")
+                print(f"   ✅ Clicked 'Log in now'")
                 
-                time.sleep(3)
+                # Wait for login to process
+                time.sleep(4)
                 
-                # Check if login successful
+                # === CHECK IF LOGIN SUCCESSFUL ===
                 page_source = self.driver.page_source.lower()
-                if "cooperative wealth zone" in page_source or "dashboard" in page_source or "welcome" in page_source:
+                current_url = self.driver.current_url.lower()
+                
+                # Check for success indicators
+                if "cooperative wealth zone" in page_source or "dashboard" in current_url or "welcome" in page_source:
                     print(f"   ✅ Login successful!")
                     self.take_screenshot(f"login_success_{phone}")
                     return True
-                else:
+                
+                # Check if still on login page (login failed)
+                if "log in now" in page_source.lower() or "login" in page_source.lower():
                     # Check for error messages
-                    if "invalid" in page_source or "error" in page_source:
-                        print(f"   ❌ Invalid credentials, check phone/password")
+                    if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
+                        print(f"   ❌ Invalid credentials - wrong phone or password")
                         self.take_screenshot(f"login_invalid_{phone}")
                         return False
+                    
                     print(f"   ❌ Login failed, retrying...")
                     time.sleep(2)
                     continue
+                
+                # If we got here but not success, try again
+                print(f"   ❌ Login failed, retrying...")
+                time.sleep(2)
+                continue
                     
             except Exception as e:
                 print(f"   ⚠️ Login error: {e}, retrying...")
