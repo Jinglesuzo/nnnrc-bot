@@ -90,17 +90,13 @@ class NRCBot:
         self.driver.execute_script("arguments[0].click();", element)
 
     def show_password(self):
-        """Click the eye icon to show the password"""
         try:
-            # Look for the eye icon / show password button
             eye_selectors = [
                 "//*[contains(@class, 'eye')]",
                 "//*[contains(@class, 'show-password')]",
                 "//*[contains(@class, 'password-toggle')]",
                 "//*[contains(@class, 'toggle-password')]",
                 "//button[@type='button']",
-                "//*[contains(@class, 'input-group-append')]//button",
-                "//*[text()='👁️']",
                 "//*[contains(@class, 'fa-eye')]",
                 "//span[contains(@class, 'password-toggle')]"
             ]
@@ -117,7 +113,6 @@ class NRCBot:
                 except:
                     pass
             
-            # Try CSS selectors
             css_selectors = [
                 "button[type='button']",
                 ".eye-icon",
@@ -214,11 +209,11 @@ class NRCBot:
             print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
-            # --- CLICK SHOW PASSWORD TO SEE WHAT WAS TYPED ---
+            # --- SHOW PASSWORD ---
             self.show_password()
             self.screenshot("04_password_visible")
             
-            # --- FIND AND CLICK LOGIN BUTTON ---
+            # --- CLICK LOGIN ---
             login_btn = self.find_login_button()
             if login_btn:
                 self.click_element(login_btn)
@@ -229,23 +224,55 @@ class NRCBot:
                 self.screenshot("05_login_button_not_found")
                 return False
             
-            time.sleep(5)
+            # --- WAIT LONGER FOR PAGE TO LOAD ---
+            print("   ⏳ Waiting 8 seconds for login to process...")
+            time.sleep(8)
             self.screenshot("06_after_login_wait")
             
-            # --- CHECK SUCCESS ---
+            # --- CHECK SUCCESS WITH MULTIPLE INDICATORS ---
             page_source = self.driver.page_source.lower()
+            current_url = self.driver.current_url.lower()
             
-            if "important notice" in page_source:
-                print(f"   ✅✅✅ LOGIN SUCCESS! (Important Notice)")
+            print(f"   📍 Current URL: {current_url}")
+            
+            # Check for success indicators
+            success_indicators = [
+                "important notice",
+                "cooperative wealth zone",
+                "dashboard",
+                "welcome to join nrc",
+                "invite newcomers",
+                "wealth center",
+                "wish book",
+                "surprise code",
+                "deposit principal"
+            ]
+            
+            for indicator in success_indicators:
+                if indicator in page_source:
+                    print(f"   ✅✅✅ LOGIN SUCCESS! Found: '{indicator}'")
+                    self.screenshot("07_login_success")
+                    return True
+            
+            # Check URL
+            if "dashboard" in current_url or "home" in current_url or "user" in current_url:
+                print(f"   ✅✅✅ LOGIN SUCCESS! URL changed to: {current_url}")
                 self.screenshot("07_login_success")
                 return True
             
-            if "cooperative wealth zone" in page_source:
-                print(f"   ✅✅✅ LOGIN SUCCESS! (Dashboard)")
-                self.screenshot("07_login_success")
-                return True
+            # Check for login failure
+            if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
+                print(f"   ❌ Invalid credentials")
+                self.screenshot("07_login_failed")
+                return False
             
-            print(f"   ❌ Login failed")
+            # If still on login page, login failed
+            if "log in now" in page_source or "login" in page_source:
+                print(f"   ❌ Still on login page - login failed")
+                self.screenshot("07_login_failed")
+                return False
+            
+            print(f"   ❌ Login failed - unknown reason")
             self.screenshot("07_login_failed")
             return False
             
