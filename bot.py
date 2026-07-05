@@ -6,42 +6,24 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
 import random
 import csv
 import os
 import sys
-import string
 
-# === WORD LIST FOR HUMAN-LIKE PASSWORDS ===
-COMMON_WORDS = [
-    'apple', 'banana', 'cherry', 'dragon', 'eagle', 'falcon', 'garden', 'honey',
-    'island', 'jungle', 'knight', 'lionel', 'magic', 'noble', 'ocean', 'piano',
-    'queen', 'river', 'star', 'tiger', 'uncle', 'victor', 'water', 'xenon',
-    'yellow', 'zebra', 'angel', 'blaze', 'cloud', 'dream', 'eagle', 'flame',
-    'grace', 'heart', 'ivory', 'joker', 'king', 'lunar', 'moon', 'night',
-    'orbit', 'peace', 'rain', 'storm', 'titan', 'ultra', 'vivid', 'whale',
-    'crystal', 'diamond', 'emerald', 'forest', 'golden', 'hero', 'iron',
-    'jade', 'koala', 'lemon', 'mango', 'nova', 'opal', 'pearl', 'ruby',
-    'sapphire', 'topaz', 'amber', 'bronze', 'copper', 'denver', 'elite',
-    'frost', 'glacier', 'hunter', 'indigo', 'jupiter', 'karma', 'legend',
-    'mystic', 'neon', 'oracle', 'phoenix', 'quantum', 'radiant', 'shadow',
-    'thunder', 'unity', 'valkyrie', 'wisdom', 'zenith'
-]
+class NRCBot:
+    def __init__(self, bot_id=1, start_index=0):
+        self.bot_id = bot_id
+        self.start_index = start_index
+        self.logins = []
+        self.processed = 0
+        self.successful = 0
+        self.failed = 0
+        self.max_login_retries = 3
 
-class NigerianAccountBot:
-    def __init__(self, start_code=7000100):
-        self.current_code = start_code
-        self.step_size = 1
-        self.created_accounts = []
-        self.account_counter = 0
-        self.nigerian_prefixes = ['080', '081', '090', '091', '070', '071']
-        self.current_phone = None
-        self.current_password = None
-        self.last_result = "Waiting to start..."
-        self.consecutive_failures = 0
-        self.max_failures = 5
-        self.max_retries = 3
+        self.load_logins()
 
         options = Options()
         options.add_argument("--headless=new")
@@ -51,40 +33,55 @@ class NigerianAccountBot:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--remote-debugging-port=9222")
 
-        print("🔄 Starting Chrome...")
+        print(f"🤖 Bot {self.bot_id} Starting...")
         try:
             options.binary_location = "/usr/bin/google-chrome"
             service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome started (pre-installed)!")
+            print(f"✅ Bot {self.bot_id} Chrome started!")
         except Exception as e:
-            print(f"❌ Failed with pre-installed: {e}")
+            print(f"❌ Bot {self.bot_id} Failed: {e}")
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=options)
-                print("✅ Chrome started with fallback!")
+                print(f"✅ Bot {self.bot_id} Chrome started with fallback!")
             except Exception as e2:
-                print(f"❌ Still failed: {e2}")
+                print(f"❌ Bot {self.bot_id} Still failed: {e2}")
                 sys.exit(1)
 
-        self.selectors = {
-            'phone': "//input[@placeholder='Please enter your phone number']",
-            'password': "//input[@placeholder='Please enter the login password']",
-            'confirm_password': "//input[@placeholder='Please confirm your password']",
-            'invitation_code': "//input[@placeholder='Please enter the invitation code']",
-        }
+    def load_logins(self):
+        """Load logins from CSV file with all details"""
+        try:
+            with open('logins.csv', 'r') as f:
+                reader = csv.reader(f)
+                next(reader)
+                self.logins = []
+                for row in reader:
+                    if len(row) >= 6:
+                        self.logins.append({
+                            'phone': row[0].strip(),
+                            'password': row[1].strip(),
+                            'real_name': row[2].strip(),
+                            'bank_name': row[3].strip(),
+                            'bank_account': row[4].strip(),
+                            'fund_password': row[5].strip()
+                        })
+                    else:
+                        print(f"⚠️ Skipping incomplete row: {row}")
+            print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} logins")
+        except Exception as e:
+            print(f"❌ Bot {self.bot_id} Failed to load logins: {e}")
+            sys.exit(1)
 
-    # === HUMAN BEHAVIOR FUNCTIONS ===
+    # === HUMAN BEHAVIOR ===
 
     def human_type(self, element, text):
-        """Type like a human with random delays between keystrokes"""
         for char in text:
             element.send_keys(char)
-            time.sleep(random.uniform(0.05, 0.25))
+            time.sleep(random.uniform(0.05, 0.2))
 
     def human_click(self, element):
-        """Click like a human with natural movement"""
         try:
             actions = ActionChains(self.driver)
             actions.move_to_element(element).perform()
@@ -96,241 +93,126 @@ class NigerianAccountBot:
             return True
 
     def random_pause(self, min_sec=0.5, max_sec=2.0):
-        """Random pause to simulate human thinking"""
         time.sleep(random.uniform(min_sec, max_sec))
-
-    def random_scroll(self):
-        """Scroll the page randomly like a human reading"""
-        try:
-            scroll_amount = random.randint(100, 500)
-            self.driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
-            time.sleep(random.uniform(0.2, 0.5))
-            if random.random() > 0.5:
-                scroll_back = random.randint(50, 200)
-                self.driver.execute_script(f"window.scrollBy(0, -{scroll_back});")
-        except:
-            pass
 
     def take_screenshot(self, name):
         try:
-            self.driver.save_screenshot(f"{name}.png")
-            print(f"   📸 Screenshot: {name}.png")
+            self.driver.save_screenshot(f"bot{self.bot_id}_{name}.png")
+            print(f"   📸 Screenshot: {name}")
         except:
             pass
 
-    def generate_nigerian_phone(self):
-        prefix = random.choice(self.nigerian_prefixes)
-        number = ''.join([str(random.randint(0, 9)) for _ in range(8)])
-        return prefix + number
-
-    def generate_password(self):
-        """Generate a human-like password: word + number (e.g., 'apple123', 'tiger456')"""
-        word = random.choice(COMMON_WORDS)
-        number = random.randint(10, 999)
-        if random.random() > 0.5:
-            word = word.capitalize()
-        return f"{word}{number}"
-
-    def format_code(self, code):
-        return str(code).zfill(7)
-
-    def clear_field(self, element):
+    def wait_for_page_load(self, timeout=30):
         try:
-            element.click()
-            time.sleep(random.uniform(0.1, 0.3))
-            self.driver.execute_script("arguments[0].value = '';", element)
-            element.send_keys(Keys.CONTROL + "a")
-            element.send_keys(Keys.DELETE)
-            element.clear()
-            self.driver.execute_script("arguments[0].value = '';", element)
+            WebDriverWait(self.driver, timeout).until(
+                lambda driver: driver.execute_script("return document.readyState") == "complete"
+            )
             return True
-        except:
+        except TimeoutException:
+            print(f"   ⏰ Page load timeout (30s)")
             return False
 
-    def wait_for_page_load(self, timeout=15):
-        try:
-            wait = WebDriverWait(self.driver, timeout)
-            wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
-            self.random_pause(0.5, 1.5)
-            return True
-        except:
-            return False
+    # === LOGIN WITH RETRY ===
 
-    def safe_find_element(self, by, selector, timeout=10):
-        for attempt in range(self.max_retries):
+    def login(self, phone, password):
+        print(f"\n🔑 Logging in: {phone}")
+        
+        for attempt in range(self.max_login_retries):
             try:
-                wait = WebDriverWait(self.driver, timeout)
-                return wait.until(EC.presence_of_element_located((by, selector)))
-            except Exception as e:
-                print(f"   ⚠️ Attempt {attempt + 1} failed: {e}")
-                time.sleep(1)
-                if attempt == self.max_retries - 1:
-                    raise
-        return None
-
-    def fill_form_once(self):
-        try:
-            self.wait_for_page_load()
-            wait = WebDriverWait(self.driver, 15)
-            
-            self.current_phone = self.generate_nigerian_phone()
-            self.current_password = self.generate_password()
-
-            print(f"\n📱 Phone: {self.current_phone}")
-            print(f"🔒 Password: {self.current_password}")
-
-            self.random_scroll()
-            self.random_pause(0.5, 1.5)
-
-            phone_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['phone'])))
-            self.clear_field(phone_field)
-            self.human_type(phone_field, self.current_phone)
-            self.random_pause(0.3, 0.8)
-
-            password_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['password'])))
-            self.clear_field(password_field)
-            self.human_type(password_field, self.current_password)
-            self.random_pause(0.3, 0.8)
-
-            confirm_field = wait.until(EC.presence_of_element_located((By.XPATH, self.selectors['confirm_password'])))
-            self.clear_field(confirm_field)
-            self.human_type(confirm_field, self.current_password)
-            self.random_pause(0.3, 0.8)
-
-            self.random_scroll()
-            self.random_pause(0.5, 1.5)
-
-            print("✅ Form filled!")
-            self.take_screenshot("after_form_fill")
-            return True
-
-        except Exception as e:
-            print(f"❌ Failed to fill form: {e}")
-            return False
-
-    def update_invitation_code(self, code):
-        try:
-            formatted_code = self.format_code(code)
-            self.wait_for_page_load()
-            
-            self.random_pause(0.5, 1.5)
-            
-            code_field = self.safe_find_element(By.XPATH, self.selectors['invitation_code'])
-            if not code_field:
-                print(f"   ❌ Code field not found")
-                return False
-            
-            self.clear_field(code_field)
-            self.human_type(code_field, formatted_code)
-            print(f"   ✅ Code: {formatted_code}")
-            
-            self.random_pause(0.3, 0.8)
-            return True
-        except Exception as e:
-            print(f"   ❌ Failed to update code: {e}")
-            return False
-
-    def click_register_button(self):
-        try:
-            self.random_scroll()
-            self.random_pause(0.5, 1.5)
-            
-            wait = WebDriverWait(self.driver, 10)
-            
-            selectors = [
-                "//*[contains(text(), 'Register now')]",
-                "//button[contains(text(), 'Register')]",
-                "//button[@type='submit']",
-                "//input[@type='submit']"
-            ]
-            
-            for selector in selectors:
-                try:
-                    button = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                    self.human_click(button)
-                    print("   ✅ Clicked Register!")
-                    return True
-                except:
-                    continue
-            
-            try:
-                form = self.driver.find_element(By.TAG_NAME, "form")
-                self.driver.execute_script("arguments[0].submit();", form)
-                print("   ✅ Submitted form!")
-                return True
-            except:
-                pass
+                print(f"   Attempt {attempt + 1}/{self.max_login_retries}")
                 
-            print("   ❌ Could not click Register!")
-            return False
-            
-        except Exception as e:
-            print(f"   ❌ Register click error: {e}")
-            return False
+                self.driver.get("https://nnnrc.com/#/login")
+                
+                if not self.wait_for_page_load(30):
+                    print(f"   ⏰ Page load timeout, reloading...")
+                    self.driver.refresh()
+                    time.sleep(2)
+                    continue
+                
+                try:
+                    phone_field = WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
+                    )
+                except TimeoutException:
+                    print(f"   ⏰ Phone field not found, reloading...")
+                    self.driver.refresh()
+                    time.sleep(2)
+                    continue
+                
+                phone_field.clear()
+                self.human_type(phone_field, phone)
+                
+                try:
+                    password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the login password']")
+                except NoSuchElementException:
+                    print(f"   ⏰ Password field not found, reloading...")
+                    self.driver.refresh()
+                    time.sleep(2)
+                    continue
+                
+                password_field.clear()
+                self.human_type(password_field, password)
+                
+                login_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+                self.human_click(login_btn)
+                
+                time.sleep(3)
+                
+                page_source = self.driver.page_source.lower()
+                if "cooperative wealth zone" in page_source or "dashboard" in page_source:
+                    print(f"   ✅ Login successful!")
+                    self.take_screenshot(f"login_success_{phone}")
+                    return True
+                else:
+                    print(f"   ❌ Login failed, retrying...")
+                    time.sleep(2)
+                    continue
+                    
+            except Exception as e:
+                print(f"   ⚠️ Login error: {e}, retrying...")
+                time.sleep(2)
+                continue
+        
+        print(f"   ❌ Failed to login after {self.max_login_retries} attempts")
+        self.take_screenshot(f"login_failed_{phone}")
+        return False
 
-    # ============================================
-    # POPUP HANDLING METHODS
-    # ============================================
+    # === POPUP REMOVAL ===
 
     def click_news_button(self):
-        """Click the NEWS button to trigger the welcome popup"""
         try:
-            news_selectors = [
+            selectors = [
                 "//*[contains(text(), 'NEWS')]",
                 "//*[contains(text(), 'News')]",
                 "//button[contains(text(), 'NEWS')]",
-                "//*[contains(@class, 'news')]",
-                "//*[contains(@id, 'news')]",
-                "//div[contains(text(), 'NEWS')]",
-                "//span[contains(text(), 'NEWS')]"
+                "//*[contains(@class, 'news')]"
             ]
-            
-            for selector in news_selectors:
+            for selector in selectors:
                 try:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
                             self.human_click(element)
-                            print("   📰 Clicked NEWS button")
+                            print("   📰 Clicked NEWS")
                             time.sleep(1.5)
                             return True
                 except:
                     continue
-            
-            # Fallback: click any visible green button
-            try:
-                green_buttons = self.driver.find_elements(By.XPATH, "//button[contains(@style, 'green')] | //*[contains(@class, 'green')]")
-                for btn in green_buttons:
-                    if btn.is_displayed():
-                        self.human_click(btn)
-                        print("   📰 Clicked green button (NEWS)")
-                        time.sleep(1.5)
-                        return True
-            except:
-                pass
-            
-            print("   ⚠️ Could not find NEWS button")
             return False
-            
-        except Exception as e:
-            print(f"   ⚠️ Error clicking NEWS: {e}")
+        except:
             return False
 
     def close_welcome_popup(self):
-        """Close the 'Welcome to join NRC' popup"""
         try:
-            welcome_selectors = [
+            selectors = [
                 "//*[contains(text(), 'Welcome to join NRC')]",
                 "//*[contains(text(), 'Thank you for your trust')]",
-                "//*[contains(@class, 'welcome')]",
                 "//button[contains(text(), 'Got it')]",
                 "//button[contains(text(), 'OK')]",
-                "//button[contains(text(), 'Close')]",
                 "//*[contains(@class, 'modal-close')]",
                 "//*[text()='×']"
             ]
-            
-            for selector in welcome_selectors:
+            for selector in selectors:
                 try:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
@@ -342,358 +224,396 @@ class NigerianAccountBot:
                 except:
                     continue
             return False
-        except Exception as e:
-            print(f"   ⚠️ Could not close welcome popup: {e}")
+        except:
             return False
 
     def close_remaining_popups(self):
-        """Close any remaining popups or ads"""
         try:
-            close_selectors = [
+            selectors = [
                 "//*[contains(@class, 'close')]",
                 "//*[contains(@class, 'modal-close')]",
                 "//*[text()='×']",
                 "//*[text()='✕']",
-                "//button[contains(@class, 'btn-close')]",
-                "//*[contains(@class, 'ad-close')]"
+                "//button[contains(@class, 'btn-close')]"
             ]
-            
-            closed = 0
-            for selector in close_selectors:
+            for selector in selectors:
                 try:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
                             self.human_click(element)
-                            closed += 1
                             time.sleep(0.3)
                 except:
                     continue
-            
-            if closed > 0:
-                print(f"   🚫 Closed {closed} remaining popup(s)")
             return True
         except:
             return False
 
-    def handle_success_popups(self):
-        """Complete flow for handling success popups"""
-        print("   📋 Handling success popups...")
-        
-        # Step 1: Click NEWS button
-        if self.click_news_button():
-            # Step 2: Close Welcome popup
-            self.close_welcome_popup()
-            
-            # Step 3: Close any remaining popups
-            self.close_remaining_popups()
-            
-            print("   ✅ All popups handled")
-            return True
-        else:
-            print("   ⚠️ Could not find NEWS button, skipping popup handling")
-            return False
+    def handle_popups(self):
+        print("   📋 Handling popups...")
+        self.click_news_button()
+        self.close_welcome_popup()
+        self.close_remaining_popups()
+        print("   ✅ Popups handled")
 
-    # ============================================
-    # TASK BUTTON AND LOGOUT METHODS
-    # ============================================
+    # === TASK METHODS ===
 
     def click_task_tab(self):
-        """Click the Task tab at the bottom"""
         try:
-            task_selectors = [
+            selectors = [
                 "//*[contains(text(), 'Task')]",
-                "//*[contains(text(), 'task')]",
                 "//*[contains(@class, 'task')]",
                 "//button[contains(text(), 'Task')]",
-                "//div[contains(text(), 'Task')]",
-                "//span[contains(text(), 'Task')]",
-                "//*[@id='task']",
                 "//*[contains(@class, 'tab-task')]"
             ]
-            
-            for selector in task_selectors:
+            for selector in selectors:
                 try:
                     elements = self.driver.find_elements(By.XPATH, selector)
                     for element in elements:
                         if element.is_displayed() and element.is_enabled():
                             self.human_click(element)
-                            print("   📋 Clicked Task tab")
+                            print("   📋 Clicked Task")
                             time.sleep(1)
                             return True
                 except:
                     continue
-            
-            print("   ⚠️ Could not find Task tab")
             return False
-            
-        except Exception as e:
-            print(f"   ⚠️ Error clicking Task: {e}")
+        except:
             return False
 
-    def check_success(self):
+    def do_tasks(self):
+        print("   📋 Doing tasks...")
+        
+        self.click_task_tab()
+        time.sleep(1)
+        
+        read_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
+        if not read_buttons:
+            read_buttons = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Read')]")
+        
+        count = 0
+        for btn in read_buttons:
+            try:
+                if btn.is_displayed() and btn.is_enabled():
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                    time.sleep(0.5)
+                    self.human_click(btn)
+                    print(f"   📖 Clicked read task {count + 1}")
+                    time.sleep(1)
+                    print(f"   ⏳ Waiting 20 seconds for task to complete...")
+                    time.sleep(20)
+                    self.close_remaining_popups()
+                    time.sleep(1)
+                    count += 1
+            except Exception as e:
+                print(f"   ⚠️ Task error: {e}")
+        
+        print(f"   ✅ Completed {count} tasks")
+        self.take_screenshot("tasks_completed")
+        return count
+
+    # === WITHDRAWAL METHODS ===
+
+    def click_my_tab(self):
         try:
-            self.random_pause(1.0, 2.5)
-            
-            page_source = self.driver.page_source.lower()
-            
-            # CHECK FOR SUCCESS - Important Notice is the key indicator
-            if "important notice" in page_source:
-                self.last_result = "✅ SUCCESS! Important Notice found"
-                self.take_screenshot("01_success_important_notice")
-                
-                # === HANDLE POPUPS (NEWS → Welcome → Close) ===
-                self.handle_success_popups()
-                
-                # === CLICK TASK TAB ===
-                self.click_task_tab()
-                self.take_screenshot("02_after_task_click")
-                
-                return True
-            
-            # Check for other success indicators
-            if "welcome to join nrc" in page_source:
-                self.last_result = "✅ SUCCESS! Welcome found"
-                self.take_screenshot("01_success_welcome")
-                self.handle_success_popups()
-                self.click_task_tab()
-                self.take_screenshot("02_after_task_click")
-                return True
-            
-            if "cooperative wealth zone" in page_source:
-                self.last_result = "✅ SUCCESS! Dashboard found"
-                self.take_screenshot("01_success_dashboard")
-                self.handle_success_popups()
-                self.click_task_tab()
-                self.take_screenshot("02_after_task_click")
-                return True
-            
-            # CHECK FOR FAILURE
-            if "please upgrade your level" in page_source or "upgrade your level" in page_source:
-                self.last_result = "❌ Upgrade message - code failed"
-                self.take_screenshot("01_failure_upgrade")
-                return False
-            
-            # OTHER SUCCESS INDICATORS
-            success_words = [
-                "cooperative wealth zone", "deposit principal", "invite newcomers",
-                "wealth center", "wish book", "surprise code", "benefit savings",
-                "dashboard", "home", "welcome", "success"
+            selectors = [
+                "//*[contains(text(), 'My')]",
+                "//*[contains(@class, 'my')]",
+                "//button[contains(text(), 'My')]",
+                "//*[contains(@class, 'tab-my')]"
             ]
-            
-            for word in success_words:
-                if word in page_source:
-                    self.last_result = f"✅ Success: '{word}' found"
-                    self.take_screenshot(f"01_success_{word.replace(' ', '_')}")
-                    self.handle_success_popups()
-                    self.click_task_tab()
-                    self.take_screenshot("02_after_task_click")
-                    return True
-            
-            self.last_result = "❌ No success indicators found"
-            self.take_screenshot("01_no_success")
+            for selector in selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            self.human_click(element)
+                            print("   👤 Clicked My")
+                            time.sleep(1)
+                            return True
+                except:
+                    continue
             return False
-            
-        except Exception as e:
-            self.last_result = f"❌ Error: {e}"
-            self.take_screenshot("01_error")
+        except:
             return False
 
-    def attempt_creation(self, code):
+    def click_withdrawal(self):
         try:
-            if not self.update_invitation_code(code):
-                return False, None
-            
-            self.random_pause(0.5, 1.5)
-            
-            if not self.click_register_button():
-                return False, None
-            
-            self.random_pause(2.0, 4.0)
-            self.wait_for_page_load()
-            
-            if self.check_success():
-                account_info = {
-                    'phone': self.current_phone,
-                    'password': self.current_password,
-                    'invitation_code': self.format_code(code)
-                }
-                self.created_accounts.append(account_info)
-                self.save_account(account_info)
-                print(f"   ✅✅✅ SUCCESS! Account created with code: {self.format_code(code)}")
-                self.last_result = f"✅ SUCCESS! Code {self.format_code(code)} worked!"
-                self.consecutive_failures = 0
-                
-                # === TAKE FINAL SCREENSHOT ===
-                self.take_screenshot("03_final_dashboard")
-                
-                return True, account_info
-            
-            self.consecutive_failures += 1
-            return False, None
-            
-        except Exception as e:
-            print(f"   ⚠️ Error in attempt: {e}")
-            self.take_screenshot("01_error")
-            self.consecutive_failures += 1
-            time.sleep(3)
-            return False, None
-
-    def create_one_account(self):
-        print("\n" + "="*50)
-        print(f"🆕 Account #{self.account_counter + 1}")
-        print(f"Starting code: {self.format_code(self.current_code)}")
-        self.consecutive_failures = 0
-
-        self.random_pause(1.0, 3.0)
-
-        if not self.fill_form_once():
-            print("❌ Could not fill form - skipping this account")
+            selectors = [
+                "//*[contains(text(), 'Withdrawal')]",
+                "//*[contains(text(), 'withdrawal')]",
+                "//button[contains(text(), 'Withdrawal')]",
+                "//a[contains(@href, 'withdraw')]"
+            ]
+            for selector in selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            self.human_click(element)
+                            print("   💰 Clicked Withdrawal")
+                            time.sleep(2)
+                            return True
+                except:
+                    continue
+            self.driver.get("https://nnnrc.com/#/user/withdraw")
+            time.sleep(2)
+            return True
+        except:
             return False
 
-        attempts = 0
-        max_tries = 10
-
-        while attempts < max_tries and self.consecutive_failures < self.max_failures:
-            code = self.current_code
-            print(f"   Testing: {self.format_code(code)}", end=" ", flush=True)
-
-            success, account = self.attempt_creation(code)
-
-            if success:
-                print(f"✅")
-                print("\n" + "="*60)
-                print("✅ ACCOUNT CREATED - COPY BELOW:")
-                print("="*60)
-                print(f"📱 Phone: {account['phone']}")
-                print(f"🔑 Password: {account['password']}")
-                print(f"🎯 Code: {account['invitation_code']}")
-                print("="*60)
-                print("\n📋 COPY THIS LINE:")
-                print(f"{account['phone']} | {account['password']} | {account['invitation_code']}")
-                print("="*60)
+    def set_fund_password(self, password):
+        try:
+            fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
+            if fund_inputs:
+                self.human_type(fund_inputs[0], password)
+                print("   🔑 Entered fund password")
                 
-                self.logout()
-                self.go_to_register_page()
-                
-                self.current_code = code + self.step_size
-                self.account_counter += 1
-                print(f"📊 Accounts created: {self.account_counter}")
-                print(f"➡️  Next code: {self.format_code(self.current_code)}")
-                return True
+                confirm_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
+                if confirm_inputs:
+                    self.human_type(confirm_inputs[0], password)
+                    print("   🔑 Confirmed fund password")
+                    
+                    submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                    self.human_click(submit_btn)
+                    print("   ✅ Fund password set")
+                    time.sleep(2)
+                    
+                    confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
+                    if confirm_btn:
+                        self.human_click(confirm_btn[0])
+                        time.sleep(1)
+                    return True
+            return False
+        except Exception as e:
+            print(f"   ⚠️ Fund password error: {e}")
+            return False
 
-            print(f"❌ ({self.consecutive_failures}/{self.max_failures} failures)")
-            self.current_code = code + self.step_size
-            attempts += 1
-            self.random_pause(0.5, 2.0)
+    def authenticate_real_name(self, name):
+        try:
+            auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
+            if auth_btn:
+                self.human_click(auth_btn[0])
+                time.sleep(2)
+            
+            name_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter a real name']")
+            self.human_type(name_input, name)
+            print(f"   👤 Entered name: {name}")
+            
+            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            self.human_click(submit_btn)
+            print("   ✅ Real name authenticated")
+            time.sleep(2)
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Authentication error: {e}")
+            return False
 
-        if self.consecutive_failures >= self.max_failures:
-            print(f"❌ Too many failures ({self.max_failures}) - skipping this account")
-        else:
-            print(f"❌ Could not find working code after {max_tries} attempts")
-        return False
+    def add_bank_card(self, real_name, bank_name, account_number):
+        try:
+            bank_select = self.driver.find_element(By.XPATH, "//*[contains(text(), '--Please select the bank name--')]")
+            self.human_click(bank_select)
+            time.sleep(1)
+            
+            bank_option = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{bank_name}')]")
+            self.human_click(bank_option)
+            print(f"   🏦 Selected bank: {bank_name}")
+            time.sleep(1)
+            
+            confirm_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
+            if confirm_btn:
+                self.human_click(confirm_btn[0])
+                time.sleep(1)
+            
+            account_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the bank account number']")
+            self.human_type(account_input, account_number)
+            print(f"   🏦 Entered account: {account_number}")
+            
+            add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
+            self.human_click(add_btn)
+            print("   ✅ Bank card added")
+            time.sleep(3)
+            
+            confirm_btn2 = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
+            if confirm_btn2:
+                self.human_click(confirm_btn2[0])
+                time.sleep(1)
+            
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Bank card error: {e}")
+            return False
+
+    def complete_withdrawal(self, amount="1800", fund_password="3333"):
+        try:
+            self.click_my_tab()
+            time.sleep(1)
+            self.click_withdrawal()
+            time.sleep(2)
+            
+            method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
+            self.human_click(method_select)
+            time.sleep(1)
+            
+            bank_option = self.driver.find_element(By.XPATH, "//*[contains(text(), 'OPAY')]")
+            self.human_click(bank_option)
+            print("   💳 Selected OPAY")
+            time.sleep(1)
+            
+            confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
+            self.human_click(confirm_btn)
+            time.sleep(1)
+            
+            fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
+            self.human_type(fund_input, fund_password)
+            print("   🔑 Entered fund password")
+            time.sleep(1)
+            
+            amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
+            self.human_type(amount_input, amount)
+            print(f"   💰 Entered amount: {amount}")
+            time.sleep(1)
+            
+            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            self.human_click(submit_btn)
+            print("   ✅ Withdrawal submitted")
+            time.sleep(3)
+            
+            final_confirm = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Confirm')]")
+            if final_confirm:
+                self.human_click(final_confirm[0])
+                time.sleep(1)
+            
+            return True
+        except Exception as e:
+            print(f"   ⚠️ Withdrawal error: {e}")
+            return False
 
     def logout(self):
         try:
-            print(f"   🔄 Logging out...")
-            self.random_pause(0.5, 1.5)
             self.driver.get("https://nnnrc.com/#/logout")
-            self.wait_for_page_load()
-            time.sleep(random.uniform(1.0, 2.0))
-            print(f"   ✅ Logged out")
-            self.take_screenshot("04_logged_out")
+            time.sleep(2)
+            print("   ✅ Logged out")
             return True
-        except Exception as e:
-            print(f"   ⚠️ Logout error: {e}")
+        except:
             return False
 
-    def go_to_register_page(self):
-        try:
-            self.driver.get("https://nnnrc.com/#/register")
-            self.wait_for_page_load()
-            time.sleep(random.uniform(1.0, 2.0))
-            print("   ✅ Back to register page")
-            return True
-        except Exception as e:
-            print(f"   ⚠️ Navigation error: {e}")
+    # === DAY PROCESSING ===
+
+    def process_day(self, login_data, day):
+        phone = login_data['phone']
+        password = login_data['password']
+        real_name = login_data['real_name']
+        bank_name = login_data['bank_name']
+        bank_account = login_data['bank_account']
+        fund_password = login_data['fund_password']
+
+        print(f"\n{'='*50}")
+        print(f"📅 DAY {day} - {phone}")
+        print(f"{'='*50}")
+
+        if not self.login(phone, password):
+            print(f"   ❌ Login failed - skipping day {day}")
             return False
 
-    def run(self, url, num_accounts=5):
+        self.handle_popups()
+        self.take_screenshot(f"day{day}_logged_in")
+
+        self.do_tasks()
+        self.take_screenshot(f"day{day}_tasks_done")
+
+        if day == 3:
+            print("   💰 Day 3 - Processing withdrawal...")
+            
+            self.click_my_tab()
+            time.sleep(1)
+            
+            self.driver.get("https://nnnrc.com/#/user/withdraw")
+            time.sleep(2)
+            
+            page_source = self.driver.page_source.lower()
+            if "bind bank card" in page_source or "authenticate now" in page_source:
+                print("   🏦 Setting up bank details...")
+                
+                self.click_my_tab()
+                time.sleep(1)
+                
+                add_bank_links = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
+                if add_bank_links:
+                    self.human_click(add_bank_links[0])
+                    time.sleep(2)
+                
+                auth_btn = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
+                if auth_btn:
+                    self.authenticate_real_name(real_name)
+                    time.sleep(2)
+                
+                self.add_bank_card(real_name, bank_name, bank_account)
+                time.sleep(2)
+                
+                fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
+                if fund_inputs:
+                    self.set_fund_password(fund_password)
+                    time.sleep(2)
+            
+            self.complete_withdrawal("1800", fund_password)
+            self.take_screenshot(f"day{day}_withdrawal_done")
+        
+        self.logout()
+        self.take_screenshot(f"day{day}_logged_out")
+        return True
+
+    def process_account(self, login_data):
+        phone = login_data['phone']
+        print(f"\n{'#'*60}")
+        print(f"📱 Processing account: {phone}")
+        print(f"🏦 Bank: {login_data['bank_name']}")
+        print(f"{'#'*60}")
+
+        for day in range(1, 4):
+            if not self.process_day(login_data, day):
+                print(f"❌ Day {day} failed for {phone} - skipping remaining days")
+                return False
+            if day < 3:
+                time.sleep(random.uniform(3, 6))
+
+        self.successful += 1
+        return True
+
+    def run(self):
         print("="*60)
-        print("🇳🇬 NIGERIAN ACCOUNT CREATION BOT (HUMAN MODE)")
-        print(f"Starting code: {self.format_code(self.current_code)}")
-        print(f"Step size: +{self.step_size}")
-        print(f"Target: {num_accounts} accounts this run")
+        print(f"🤖 BOT {self.bot_id} STARTING")
+        print(f"📋 Total logins: {len(self.logins)}")
+        print(f"📅 Each account processed for 3 days")
         print("="*60)
 
-        try:
-            self.driver.get(url)
-            self.wait_for_page_load()
-            print("✅ Website loaded")
-            self.take_screenshot("00_page_loaded")
-            self.random_pause(1.0, 3.0)
-        except Exception as e:
-            print(f"❌ Failed to load: {e}")
-            return
+        for i, login_data in enumerate(self.logins):
+            print(f"\n{'#'*50}")
+            print(f"📱 Account {i + 1}/{len(self.logins)}")
+            print(f"{'#'*50}")
 
-        for i in range(num_accounts):
-            print(f"\n🎯 Creating Account #{i + 1} of {num_accounts}")
-            success = self.create_one_account()
+            self.process_account(login_data)
 
-            if not success:
-                print(f"⚠️ Failed to create account #{i + 1}")
-                self.driver.get("https://nnnrc.com/#/register")
-                self.wait_for_page_load()
-                self.random_pause(1.0, 2.0)
-                self.take_screenshot("05_recovery")
-
-            if i < num_accounts - 1:
-                delay = random.uniform(5.0, 10.0)
-                print(f"⏳ Human-like pause {delay:.1f}s before next account...")
+            if i < len(self.logins) - 1:
+                delay = random.uniform(5, 10)
+                print(f"⏳ Waiting {delay:.1f}s before next account...")
                 time.sleep(delay)
 
         print("\n" + "="*60)
-        print("📊 FINAL SUMMARY")
-        print(f"Total accounts created: {len(self.created_accounts)}")
-        
-        print("\n" + "="*60)
-        print("📋 COPY ALL ACCOUNTS BELOW:")
+        print(f"📊 BOT {self.bot_id} COMPLETE")
+        print(f"✅ Successfully processed: {self.successful}")
+        print(f"❌ Failed: {self.failed}")
         print("="*60)
-        for idx, acc in enumerate(self.created_accounts, 1):
-            print(f"{idx}. {acc['phone']} | {acc['password']} | {acc['invitation_code']}")
-        print("="*60)
-        
-        print("\n📱 Login Credentials:")
-        for idx, acc in enumerate(self.created_accounts, 1):
-            print(f"   #{idx} → Phone: {acc['phone']} | Password: {acc['password']}")
-        print("="*60)
-        print(f"➡️  Next run will start from: {self.format_code(self.current_code)}")
-        print("="*60)
-        
-        self.take_screenshot("99_final_summary")
+
         self.driver.quit()
 
-    def save_account(self, account):
-        file_exists = os.path.isfile('accounts.csv')
-        with open('accounts.csv', 'a', newline='') as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(['Account #', 'Phone', 'Password', 'Invitation Code', 'Timestamp'])
-            writer.writerow([
-                len(self.created_accounts),
-                account['phone'],
-                account['password'],
-                account['invitation_code'],
-                time.ctime()
-            ])
-        print(f"   💾 Saved to accounts.csv")
-
 # ============================================
-# RUN THE BOT (START: 7000100, STEP: +1)
+# RUN THE BOT
 # ============================================
 
-target_url = "https://nnnrc.com/#/register"
-NUM_ACCOUNTS = 1
+if __name__ == "__main__":
+    bot_id = int(os.environ.get('BOT_ID', 1))
+    start_index = int(os.environ.get('START_INDEX', 0))
 
-bot = NigerianAccountBot(start_code=50420)
-bot.run(target_url, num_accounts=NUM_ACCOUNTS)
+    bot = NRCBot(bot_id=bot_id, start_index=start_index)
+    bot.run()
