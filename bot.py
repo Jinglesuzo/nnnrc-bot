@@ -61,7 +61,6 @@ class NRCBot:
             self.logins = [{'phone': '08057536473', 'password': 'people56'}]
 
     def clear_field(self, element):
-        """Clear a field using multiple methods"""
         try:
             element.click()
             time.sleep(0.1)
@@ -77,7 +76,6 @@ class NRCBot:
             return False
 
     def type_text(self, element, text):
-        """Type text ONCE - CLEAR properly first"""
         self.clear_field(element)
         for char in text:
             element.send_keys(char)
@@ -87,13 +85,66 @@ class NRCBot:
         time.sleep(0.2)
 
     def click_element(self, element):
-        """Click using JavaScript"""
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
         time.sleep(0.3)
         self.driver.execute_script("arguments[0].click();", element)
 
+    def show_password(self):
+        """Click the eye icon to show the password"""
+        try:
+            # Look for the eye icon / show password button
+            eye_selectors = [
+                "//*[contains(@class, 'eye')]",
+                "//*[contains(@class, 'show-password')]",
+                "//*[contains(@class, 'password-toggle')]",
+                "//*[contains(@class, 'toggle-password')]",
+                "//button[@type='button']",
+                "//*[contains(@class, 'input-group-append')]//button",
+                "//*[text()='👁️']",
+                "//*[contains(@class, 'fa-eye')]",
+                "//span[contains(@class, 'password-toggle')]"
+            ]
+            
+            for selector in eye_selectors:
+                try:
+                    eye_btn = self.driver.find_element(By.XPATH, selector)
+                    if eye_btn.is_displayed() and eye_btn.is_enabled():
+                        self.click_element(eye_btn)
+                        print("   👁️ Clicked show password")
+                        time.sleep(0.5)
+                        self.screenshot("password_shown")
+                        return True
+                except:
+                    pass
+            
+            # Try CSS selectors
+            css_selectors = [
+                "button[type='button']",
+                ".eye-icon",
+                ".password-toggle",
+                ".show-password"
+            ]
+            
+            for selector in css_selectors:
+                try:
+                    eye_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if eye_btn.is_displayed() and eye_btn.is_enabled():
+                        self.click_element(eye_btn)
+                        print("   👁️ Clicked show password (CSS)")
+                        time.sleep(0.5)
+                        self.screenshot("password_shown")
+                        return True
+                except:
+                    pass
+            
+            print("   ⚠️ Could not find show password button")
+            return False
+            
+        except Exception as e:
+            print(f"   ⚠️ Show password error: {e}")
+            return False
+
     def find_login_button(self):
-        """Find the green 'Log in now' button"""
         print("   🔍 Looking for login button...")
         
         try:
@@ -163,40 +214,44 @@ class NRCBot:
             print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
+            # --- CLICK SHOW PASSWORD TO SEE WHAT WAS TYPED ---
+            self.show_password()
+            self.screenshot("04_password_visible")
+            
             # --- FIND AND CLICK LOGIN BUTTON ---
             login_btn = self.find_login_button()
             if login_btn:
                 self.click_element(login_btn)
                 print(f"   ✅ Clicked login")
-                self.screenshot("04_after_login_click")
+                self.screenshot("05_after_login_click")
             else:
                 print(f"   ❌ Login button not found")
-                self.screenshot("04_login_button_not_found")
+                self.screenshot("05_login_button_not_found")
                 return False
             
             time.sleep(5)
-            self.screenshot("05_after_login_wait")
+            self.screenshot("06_after_login_wait")
             
             # --- CHECK SUCCESS ---
             page_source = self.driver.page_source.lower()
             
             if "important notice" in page_source:
                 print(f"   ✅✅✅ LOGIN SUCCESS! (Important Notice)")
-                self.screenshot("06_login_success")
+                self.screenshot("07_login_success")
                 return True
             
             if "cooperative wealth zone" in page_source:
                 print(f"   ✅✅✅ LOGIN SUCCESS! (Dashboard)")
-                self.screenshot("06_login_success")
+                self.screenshot("07_login_success")
                 return True
             
             print(f"   ❌ Login failed")
-            self.screenshot("06_login_failed")
+            self.screenshot("07_login_failed")
             return False
             
         except Exception as e:
             print(f"   ❌ Error: {e}")
-            self.screenshot("06_login_error")
+            self.screenshot("error")
             return False
 
     def logout(self):
@@ -204,7 +259,7 @@ class NRCBot:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
             print(f"   ✅ Logged out")
-            self.screenshot("07_logged_out")
+            self.screenshot("08_logged_out")
         except:
             pass
 
