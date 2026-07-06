@@ -333,7 +333,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # ADD BANK ACCOUNT - FIXED
+    # ADD BANK ACCOUNT - DROPDOWN VERSION
     # ============================================
 
     def add_bank_account(self, login_data):
@@ -343,8 +343,6 @@ class NRCBot:
         time.sleep(3)
         self.screenshot("01_bank_page")
         print("   ✅ Bank setup page loaded")
-        
-        self.save_html("bank_page")
         
         # Authenticate now if needed
         try:
@@ -363,8 +361,7 @@ class NRCBot:
             "//input[@placeholder='Please enter a real name']",
             "//input[contains(@placeholder, 'real name')]",
             "//input[contains(@placeholder, 'name')]",
-            "//input[contains(@name, 'name')]",
-            "//input[contains(@id, 'name')]"
+            "//input[contains(@name, 'name')]"
         ]
         
         for selector in name_selectors:
@@ -433,105 +430,89 @@ class NRCBot:
             return False
 
         # ============================================
-        # SELECT BANK - ROBUST METHOD
+        # SELECT BANK - DROPDOWN METHOD
         # ============================================
         
-        print("   🔘 Looking for bank selector...")
+        print("   🔘 Looking for bank dropdown...")
         bank_select_clicked = False
         
-        # Method 1: Try <select> dropdown
-        try:
-            select = self.driver.find_element(By.TAG_NAME, "select")
-            if select.is_displayed():
-                options = select.find_elements(By.TAG_NAME, "option")
-                for option in options:
-                    if 'OPAY' in option.text.upper():
-                        option.click()
-                        bank_select_clicked = True
-                        print(f"   ✅ Selected OPAY from dropdown")
-                        time.sleep(1)
-                        self.screenshot("06_opay_selected")
-                        break
-        except:
-            pass
+        # Method 1: Find and click the dropdown
+        dropdown_selectors = [
+            "//select",
+            "//*[contains(@class, 'bank-select')]",
+            "//*[contains(@class, 'form-select')]",
+            "//*[contains(text(), 'Please select the bank name')]",
+            "//*[contains(text(), '--Please select the bank name--')]",
+            "//div[contains(@class, 'dropdown')]",
+            "//*[contains(@class, 'select')]"
+        ]
         
-        # Method 2: Try clicking dropdown and selecting OPAY
-        if not bank_select_clicked:
-            selectors = [
-                "//*[contains(text(), 'Please select the bank name')]",
-                "//*[contains(text(), '--Please select the bank name--')]",
-                "//*[contains(@class, 'bank-select')]",
-                "//*[contains(@class, 'select')]",
-                "//div[contains(@class, 'dropdown')]",
-                "//*[contains(@class, 'form-select')]",
-                "//select"
-            ]
-            
-            for selector in selectors:
-                try:
-                    element = WebDriverWait(self.driver, 3).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    if element:
-                        self.click_element(element)
-                        time.sleep(1)
-                        self.screenshot("06_bank_select_clicked")
-                        print(f"   ✅ Clicked bank selector")
-                        
-                        # Try to find OPAY in the dropdown
-                        opay_selectors = [
-                            "//*[contains(text(), 'OPAY')]",
-                            "//*[contains(text(), 'Opay')]",
-                            "//option[contains(text(), 'OPAY')]",
-                            "//li[contains(text(), 'OPAY')]",
-                            "//div[contains(text(), 'OPAY')]"
-                        ]
-                        
-                        for opay_sel in opay_selectors:
-                            try:
-                                opay = WebDriverWait(self.driver, 3).until(
-                                    EC.element_to_be_clickable((By.XPATH, opay_sel))
-                                )
-                                if opay:
-                                    self.click_element(opay)
-                                    bank_select_clicked = True
-                                    print(f"   ✅ Selected OPAY")
-                                    time.sleep(1)
-                                    self.screenshot("07_opay_selected")
-                                    break
-                            except:
-                                continue
-                        
-                        if bank_select_clicked:
-                            break
-                except:
-                    continue
-        
-        if not bank_select_clicked:
-            # Method 3: Try JavaScript to set value
+        dropdown_element = None
+        for selector in dropdown_selectors:
             try:
-                js_script = """
-                var selects = document.getElementsByTagName('select');
-                for (var i = 0; i < selects.length; i++) {
-                    var options = selects[i].options;
-                    for (var j = 0; j < options.length; j++) {
-                        if (options[j].text.toUpperCase().includes('OPAY')) {
-                            selects[i].value = options[j].value;
-                            selects[i].dispatchEvent(new Event('change'));
-                            return true;
-                        }
-                    }
-                }
-                return false;
-                """
-                result = self.driver.execute_script(js_script)
-                if result:
-                    bank_select_clicked = True
-                    print(f"   ✅ Selected OPAY via JavaScript")
-                    time.sleep(1)
-                    self.screenshot("07_opay_selected")
+                dropdown_element = WebDriverWait(self.driver, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                if dropdown_element:
+                    print(f"   ✅ Found dropdown: {selector}")
+                    break
             except:
-                pass
+                continue
+        
+        if dropdown_element:
+            self.click_element(dropdown_element)
+            time.sleep(1)
+            self.screenshot("06_dropdown_opened")
+            print("   ✅ Clicked dropdown")
+            
+            try:
+                opay_found = False
+                
+                # Try to find OPAY by text
+                opay_selectors = [
+                    "//option[contains(text(), 'OPAY')]",
+                    "//*[contains(text(), 'OPAY')]",
+                    "//li[contains(text(), 'OPAY')]",
+                    "//div[contains(text(), 'OPAY')]"
+                ]
+                
+                for selector in opay_selectors:
+                    try:
+                        opay_option = WebDriverWait(self.driver, 3).until(
+                            EC.element_to_be_clickable((By.XPATH, selector))
+                        )
+                        if opay_option:
+                            self.click_element(opay_option)
+                            opay_found = True
+                            bank_select_clicked = True
+                            print("   ✅ Selected OPAY")
+                            time.sleep(1)
+                            self.screenshot("07_opay_selected")
+                            break
+                    except:
+                        continue
+                
+                # If not found, try options list
+                if not opay_found:
+                    try:
+                        select = self.driver.find_element(By.TAG_NAME, "select")
+                        options = select.find_elements(By.TAG_NAME, "option")
+                        for option in options:
+                            if 'OPAY' in option.text.upper():
+                                self.click_element(option)
+                                bank_select_clicked = True
+                                print("   ✅ Selected OPAY (from options)")
+                                time.sleep(1)
+                                self.screenshot("07_opay_selected")
+                                break
+                    except:
+                        pass
+            except Exception as e:
+                print(f"   ⚠️ Could not select OPAY: {e}")
+        else:
+            print("   ❌ Could not find dropdown")
+            self.screenshot("06_dropdown_not_found")
+            return False
         
         if not bank_select_clicked:
             print("   ❌ Could not select bank")
@@ -589,8 +570,7 @@ class NRCBot:
             "//button[contains(text(), 'Add')]",
             "//button[contains(@class, 'add')]",
             "//button[@type='submit']",
-            "//button[contains(@class, 'btn-primary')]",
-            "//button[contains(@class, 'btn')]"
+            "//button[contains(@class, 'btn-primary')]"
         ]
         
         for selector in add_selectors:
@@ -732,5 +712,4 @@ class NRCBot:
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
-    bot = NRCBot(bot_id=bot_id)
-    bot.run()
+    bot = NRCBot(bot_id=bot_id
