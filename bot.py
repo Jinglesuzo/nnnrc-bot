@@ -300,17 +300,116 @@ class NRCBot:
         return self.click_confirm()
 
     # ============================================
-    # ADD BANK ACCOUNT
+    # AUTHENTICATION + BANK DETAILS
+    # ============================================
+
+    def authenticate_and_add_bank(self, login_data):
+        """Click Authenticate now, enter real name, add bank details"""
+        
+        print("   🔐 Starting authentication and bank setup...")
+        
+        # 1. Click "Authenticate now"
+        try:
+            auth_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Authenticate now')]"))
+            )
+            self.click_element(auth_btn)
+            time.sleep(2)
+            self.screenshot("01_authenticate_clicked")
+            print("   ✅ Clicked 'Authenticate now'")
+        except Exception as e:
+            print(f"   ❌ Could not find 'Authenticate now': {e}")
+            return False
+
+        # 2. Enter real name
+        try:
+            name_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter a real name']"))
+            )
+            self.type_text(name_input, login_data['real_name'])
+            self.screenshot("02_real_name_entered")
+            print(f"   👤 Entered real name: {login_data['real_name']}")
+        except Exception as e:
+            print(f"   ❌ Could not find real name field: {e}")
+            return False
+
+        # 3. Click Submit after real name
+        try:
+            submit_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit')]"))
+            )
+            self.click_element(submit_btn)
+            time.sleep(2)
+            self.screenshot("03_real_name_submitted")
+            print("   ✅ Submitted real name")
+        except Exception as e:
+            print(f"   ❌ Could not submit real name: {e}")
+            return False
+
+        # 4. Select bank name
+        try:
+            bank_select = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), '--Please select the bank name--')]"))
+            )
+            self.click_element(bank_select)
+            time.sleep(1)
+            self.screenshot("04_bank_select_clicked")
+            print("   ✅ Clicked bank selector")
+        except Exception as e:
+            print(f"   ❌ Could not find bank selector: {e}")
+            return False
+
+        # 5. Select the bank (OPAY)
+        try:
+            bank_option = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(), '{login_data['bank_name']}')]"))
+            )
+            self.click_element(bank_option)
+            time.sleep(1)
+            self.screenshot("05_bank_selected")
+            print(f"   🏦 Selected bank: {login_data['bank_name']}")
+        except Exception as e:
+            print(f"   ❌ Could not select bank: {e}")
+            return False
+
+        # 6. Enter bank account number
+        try:
+            account_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the bank account number']"))
+            )
+            self.type_text(account_input, login_data['bank_account'])
+            self.screenshot("06_account_entered")
+            print(f"   🏦 Entered account: {login_data['bank_account']}")
+        except Exception as e:
+            print(f"   ❌ Could not find account number field: {e}")
+            return False
+
+        # 7. Click Add now
+        try:
+            add_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Add now')]"))
+            )
+            self.click_element(add_btn)
+            time.sleep(2)
+            self.screenshot("07_bank_added")
+            print("   ✅ Bank card added successfully!")
+            return True
+        except Exception as e:
+            print(f"   ❌ Could not add bank: {e}")
+            return False
+
+    # ============================================
+    # ADD BANK ACCOUNT (Main Entry)
     # ============================================
 
     def add_bank_account(self, login_data):
-        """Go to /user/info, click Add a bank account, click green button, screenshot"""
+        """Go to /user/info, click Add a bank account, then authenticate and add bank"""
         
         print("   🏦 Going to user info page to add bank...")
         try:
             self.driver.get("https://nnnrc.com/#/user/info")
             time.sleep(3)
-            self.screenshot("01_user_info_for_bank")
+            self.screenshot("00_user_info_for_bank")
             print("   ✅ User info page loaded")
         except Exception as e:
             print(f"   ❌ Could not load user info page: {e}")
@@ -323,51 +422,14 @@ class NRCBot:
             )
             self.click_element(add_bank_btn)
             time.sleep(2)
-            self.screenshot("02_add_bank_clicked")
+            self.screenshot("00_add_bank_clicked")
             print("   ✅ Clicked 'Add a bank account'")
         except Exception as e:
             print(f"   ❌ Could not find 'Add a bank account': {e}")
             return False
 
-        # 2. Click the green button (Submit/Confirm/Next)
-        print("   🔘 Looking for green button...")
-        try:
-            green_btn = None
-            green_selectors = [
-                "//button[contains(text(), 'Add now')]",
-                "//button[contains(text(), 'Submit')]",
-                "//button[contains(text(), 'Confirm')]",
-                "//button[contains(text(), 'Next')]",
-                "//button[contains(@class, 'green')]",
-                "//button[@type='submit']",
-                "//button[contains(@class, 'btn-primary')]",
-                "//button[contains(@class, 'primary')]"
-            ]
-            
-            for selector in green_selectors:
-                try:
-                    green_btn = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    if green_btn.is_displayed():
-                        print(f"   ✅ Found green button: {selector}")
-                        break
-                except:
-                    continue
-            
-            if green_btn:
-                self.click_element(green_btn)
-                time.sleep(2)
-                self.screenshot("03_green_button_clicked")
-                print("   ✅ Clicked green button")
-                return True
-            else:
-                print("   ❌ Could not find green button")
-                self.screenshot("03_green_button_not_found")
-                return False
-        except Exception as e:
-            print(f"   ❌ Error clicking green button: {e}")
-            return False
+        # 2. Run authentication and bank setup
+        return self.authenticate_and_add_bank(login_data)
 
     # ============================================
     # FUND PASSWORD + SIGN OUT
@@ -546,7 +608,7 @@ class NRCBot:
         
         self.set_fund_password_and_signout(fund_password)
         
-        # Add bank account after fund password is set
+        # Add bank account with authentication
         self.add_bank_account(login_data)
         
         return True
