@@ -353,44 +353,68 @@ class NRCBot:
 
         # 4. Click Submit - GREEN BUTTON (FIXED)
         print("   🔘 Looking for Submit button...")
+        submit_clicked = False
+        
+        # Method 1: By exact text "Submit"
         try:
-            # Multiple ways to find the Submit button
-            submit_selectors = [
-                "//button[contains(text(), 'Submit')]",
-                "//button[text()='Submit']",
-                "//*[contains(@class, 'submit')]",
-                "//button[contains(@class, 'submit')]",
-                "//button[@type='submit']",
-                "//button[contains(@class, 'green')]",
-                "//input[@type='submit']"
-            ]
-            
-            submit_btn = None
-            for selector in submit_selectors:
-                try:
-                    submit_btn = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    if submit_btn.is_displayed():
-                        print(f"   ✅ Found Submit button: {selector}")
-                        break
-                except:
-                    continue
-            
-            if submit_btn:
-                # Scroll to button and click with JavaScript
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-                time.sleep(0.5)
-                self.driver.execute_script("arguments[0].click();", submit_btn)
-                print("   ✅ Clicked Submit button")
-                time.sleep(2)
-                self.screenshot("05_submit_clicked")
-            else:
-                print("   ❌ Could not find Submit button")
-                self.screenshot("05_submit_not_found")
-                return False
-        except Exception as e:
-            print(f"   ❌ Error clicking Submit: {e}")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[text()='Submit']")
+            self.click_element(submit_btn)
+            print("   ✅ Clicked Submit (by exact text)")
+            submit_clicked = True
+        except:
+            pass
+        
+        # Method 2: By contains text
+        if not submit_clicked:
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                self.click_element(submit_btn)
+                print("   ✅ Clicked Submit (by contains text)")
+                submit_clicked = True
+            except:
+                pass
+        
+        # Method 3: By type submit
+        if not submit_clicked:
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+                self.click_element(submit_btn)
+                print("   ✅ Clicked Submit (by type)")
+                submit_clicked = True
+            except:
+                pass
+        
+        # Method 4: By CSS class
+        if not submit_clicked:
+            try:
+                submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='submit']")
+                self.click_element(submit_btn)
+                print("   ✅ Clicked Submit (by class)")
+                submit_clicked = True
+            except:
+                pass
+        
+        # Method 5: Find any visible button with Submit text
+        if not submit_clicked:
+            try:
+                buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                for btn in buttons:
+                    if btn.is_displayed() and btn.is_enabled():
+                        text = btn.text.lower()
+                        if 'submit' in text:
+                            self.click_element(btn)
+                            print(f"   ✅ Clicked Submit (found by scanning): '{btn.text}'")
+                            submit_clicked = True
+                            break
+            except:
+                pass
+        
+        if submit_clicked:
+            time.sleep(2)
+            self.screenshot("05_submit_clicked")
+        else:
+            print("   ❌ Could not find Submit button")
+            self.screenshot("05_submit_not_found")
             return False
 
         # 5. Click Sign out
