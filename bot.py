@@ -347,47 +347,65 @@ class NRCBot:
         return total_tasks
 
     # ============================================
-    # WITHDRAWAL - CONFIRM BUTTON ONLY
+    # WITHDRAWAL - CLICK CONFIRM ONLY
     # ============================================
 
     def click_confirm_only(self):
-        """Click the Confirm button and screenshot the next page"""
+        """Click the Confirm button - NO LOGOUT"""
         print("   🔘 Looking for Confirm button...")
         try:
-            # Find and click Confirm button
-            confirm_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Confirm')]"))
-            )
-            self.click_element(confirm_btn)
-            print("   ✅ Clicked Confirm button")
-            time.sleep(2)
-            self.screenshot("confirm_clicked")
-            return True
+            # Try multiple ways to find Confirm button
+            confirm_selectors = [
+                "//button[contains(text(), 'Confirm')]",
+                "//button[text()='Confirm']",
+                "//*[contains(@class, 'confirm')]",
+                "//button[contains(@class, 'confirm')]"
+            ]
+            
+            for selector in confirm_selectors:
+                try:
+                    confirm_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    if confirm_btn.is_displayed() and confirm_btn.is_enabled():
+                        self.click_element(confirm_btn)
+                        print("   ✅ Clicked Confirm button")
+                        time.sleep(2)
+                        self.screenshot("confirm_clicked")
+                        return True
+                except:
+                    continue
+            
+            print("   ❌ Could not find Confirm button")
+            return False
         except Exception as e:
-            print(f"   ⚠️ Could not find Confirm button: {e}")
+            print(f"   ❌ Error clicking Confirm: {e}")
             return False
 
     def complete_withdrawal(self, fund_password, amount="1800"):
-        """Complete withdrawal - only click Confirm"""
+        """Go to withdrawal page and click Confirm ONLY"""
         print(f"   💰 Processing withdrawal...")
         
         # Go to withdrawal page
         try:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
-            time.sleep(2)
+            time.sleep(3)
             self.screenshot("withdrawal_page")
             print("   ✅ Withdrawal page loaded")
         except Exception as e:
             print(f"   ❌ Could not load withdrawal page: {e}")
             return False
         
-        # ONLY CLICK CONFIRM AND SCREENSHOT
+        # ONLY CLICK CONFIRM - NO LOGOUT
         if self.click_confirm_only():
-            print("   ✅ Confirm clicked! Screenshot saved.")
+            print("   ✅ Confirm clicked! Taking screenshot...")
+            time.sleep(2)
             self.screenshot("after_confirm_clicked")
+            print("   ✅ Screenshot saved: after_confirm_clicked.png")
             return True
         else:
             print("   ❌ Could not click Confirm")
+            self.screenshot("confirm_not_found")
             return False
 
     # ============================================
@@ -506,12 +524,14 @@ class NRCBot:
         self.do_tasks()
         self.screenshot("after_tasks")
         
-        # 4. Complete withdrawal (only click Confirm)
+        # 4. Go to withdrawal and click Confirm ONLY
         self.complete_withdrawal(login_data['fund_password'], "1800")
         
+        print("   ✅ Account processing complete! (No logout)")
         return True
 
     def logout_all(self):
+        """Only logout when called explicitly"""
         try:
             self.driver.get("https://nnnrc.com/#/logout")
             time.sleep(2)
@@ -538,6 +558,7 @@ class NRCBot:
             
             time.sleep(3)
 
+        # Only logout at the very end
         if self.logged_in_accounts:
             self.logout_all()
         else:
