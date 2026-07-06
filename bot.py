@@ -118,14 +118,13 @@ class NRCBot:
             return False
 
     # ============================================
-    # CLICK ANY GREEN BUTTON (MULTIPLE METHODS)
+    # CLICK GREEN BUTTON (MULTIPLE METHODS)
     # ============================================
 
     def click_green_button(self, button_text=None):
         """Click any green button using multiple methods"""
         print(f"   🔘 Looking for green button...")
         
-        # Method 1: By exact text
         if button_text:
             try:
                 btn = self.driver.find_element(By.XPATH, f"//button[text()='{button_text}']")
@@ -145,7 +144,6 @@ class NRCBot:
             except:
                 pass
         
-        # Method 2: By type submit
         try:
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             if btn.is_displayed() and btn.is_enabled():
@@ -155,7 +153,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 3: By green class
         try:
             btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='Green'], button[class*='primary'], button[class*='btn-primary']")
             if btn.is_displayed() and btn.is_enabled():
@@ -165,7 +162,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 4: By any button with text containing the button_text
         if button_text:
             try:
                 buttons = self.driver.find_elements(By.TAG_NAME, "button")
@@ -179,7 +175,6 @@ class NRCBot:
             except:
                 pass
         
-        # Method 5: Find any visible button
         try:
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
@@ -193,50 +188,86 @@ class NRCBot:
         print(f"   ❌ Could not find green button")
         return False
 
-    def find_login_button(self):
-        print("   🔍 Looking for login button...")
+    # ============================================
+    # LOGIN BUTTON CLICK (FIXED)
+    # ============================================
+
+    def click_login_button(self):
+        """Click the login button using EVERY possible method"""
+        print("   🔘 Clicking login button...")
         
-        # Method 1: By text "Log in now"
+        # Method 1: Find by text and click with JavaScript
         try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            if btn.is_displayed() and btn.is_enabled():
-                print("   ✅ Found 'Log in now'")
-                return btn
+            if btn.is_displayed():
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                time.sleep(0.3)
+                self.driver.execute_script("arguments[0].click();", btn)
+                print("   ✅ Clicked 'Log in now' (JavaScript)")
+                return True
         except:
             pass
         
-        # Method 2: By type submit
+        # Method 2: Find by text and click normally
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            if btn.is_displayed():
+                btn.click()
+                print("   ✅ Clicked 'Log in now' (normal click)")
+                return True
+        except:
+            pass
+        
+        # Method 3: By type submit
         try:
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            if btn.is_displayed() and btn.is_enabled():
-                print("   ✅ Found submit button")
-                return btn
+            if btn.is_displayed():
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                time.sleep(0.3)
+                self.driver.execute_script("arguments[0].click();", btn)
+                print("   ✅ Clicked submit button")
+                return True
         except:
             pass
         
-        # Method 3: By green class
+        # Method 4: By CSS class
         try:
-            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='primary']")
-            if btn.is_displayed() and btn.is_enabled():
-                print("   ✅ Found green button")
-                return btn
+            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='login'], button[class*='Login'], button[class*='green'], button[class*='primary']")
+            if btn.is_displayed():
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                time.sleep(0.3)
+                self.driver.execute_script("arguments[0].click();", btn)
+                print("   ✅ Clicked button by class")
+                return True
         except:
             pass
         
-        # Method 4: Any visible button
+        # Method 5: Find any button with "log" or "in" in text
         try:
             buttons = self.driver.find_elements(By.TAG_NAME, "button")
             for btn in buttons:
                 if btn.is_displayed() and btn.is_enabled():
                     text = btn.text.lower()
                     if 'log' in text or 'in' in text or 'submit' in text:
-                        print(f"   ✅ Found button: '{btn.text}'")
-                        return btn
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                        time.sleep(0.3)
+                        self.driver.execute_script("arguments[0].click();", btn)
+                        print(f"   ✅ Clicked button: '{btn.text}'")
+                        return True
         except:
             pass
         
-        print("   ❌ No login button found")
-        return None
+        # Method 6: Submit the form directly
+        try:
+            form = self.driver.find_element(By.TAG_NAME, "form")
+            self.driver.execute_script("arguments[0].submit();", form)
+            print("   ✅ Submitted form directly")
+            return True
+        except:
+            pass
+        
+        print("   ❌ Could not click login button")
+        return False
 
     # ============================================
     # POPUP REMOVAL
@@ -384,7 +415,6 @@ class NRCBot:
             print("   ❌ Could not load withdrawal page")
             return False
         
-        # Use the green button clicker for Confirm
         return self.click_green_button("Confirm")
 
     # ============================================
@@ -434,7 +464,6 @@ class NRCBot:
             print(f"   ❌ Could not find confirm password field: {e}")
             return False
 
-        # Use the green button clicker for Submit
         return self.click_green_button("Submit")
 
     # ============================================
@@ -444,7 +473,6 @@ class NRCBot:
     def authenticate_and_add_bank(self, login_data):
         print("   🔐 Starting authentication and bank setup...")
         
-        # 1. Click "Authenticate now" using green button clicker
         if not self.click_green_button("Authenticate now"):
             print("   ❌ Could not click Authenticate now")
             return False
@@ -452,7 +480,6 @@ class NRCBot:
         time.sleep(2)
         self.screenshot("01_authenticate_clicked")
 
-        # 2. Enter real name
         try:
             name_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter a real name']"))
@@ -464,7 +491,6 @@ class NRCBot:
             print(f"   ❌ Could not find real name field: {e}")
             return False
 
-        # 3. Click Submit after real name using green button clicker
         if not self.click_green_button("Submit"):
             print("   ❌ Could not submit real name")
             return False
@@ -472,7 +498,6 @@ class NRCBot:
         time.sleep(2)
         self.screenshot("03_real_name_submitted")
 
-        # 4. Select bank name
         try:
             bank_select = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), '--Please select the bank name--')]"))
@@ -485,7 +510,6 @@ class NRCBot:
             print(f"   ❌ Could not find bank selector: {e}")
             return False
 
-        # 5. Select the bank (OPAY)
         try:
             bank_option = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(), '{login_data['bank_name']}')]"))
@@ -498,7 +522,6 @@ class NRCBot:
             print(f"   ❌ Could not select bank: {e}")
             return False
 
-        # 6. Enter bank account number
         try:
             account_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the bank account number']"))
@@ -510,7 +533,6 @@ class NRCBot:
             print(f"   ❌ Could not find account number field: {e}")
             return False
 
-        # 7. Click Add now using green button clicker
         if not self.click_green_button("Add now"):
             print("   ❌ Could not add bank")
             return False
@@ -519,10 +541,6 @@ class NRCBot:
         self.screenshot("07_bank_added")
         print("   ✅ Bank card added successfully!")
         return True
-
-    # ============================================
-    # ADD BANK ACCOUNT (Main Entry)
-    # ============================================
 
     def add_bank_account(self, login_data):
         print("   🏦 Going to user info page to add bank...")
@@ -548,10 +566,6 @@ class NRCBot:
             return False
 
         return self.authenticate_and_add_bank(login_data)
-
-    # ============================================
-    # SIGN OUT
-    # ============================================
 
     def sign_out(self):
         try:
@@ -593,13 +607,9 @@ class NRCBot:
             print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
-            login_btn = self.find_login_button()
-            if login_btn:
-                self.click_element(login_btn)
-                print(f"   ✅ Clicked login")
-                self.screenshot("04_after_login_click")
-            else:
-                print(f"   ❌ Login button not found")
+            # Use the dedicated login button clicker
+            if not self.click_login_button():
+                print("   ❌ Could not click login button")
                 return False
             
             time.sleep(8)
@@ -627,7 +637,6 @@ class NRCBot:
         fund_password = login_data['fund_password']
         
         print(f"\n📱 Account: {phone}")
-        print(f"🔑 Fund password to set: {fund_password}")
         
         if not self.login(phone, password):
             return False
