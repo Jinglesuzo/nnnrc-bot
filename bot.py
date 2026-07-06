@@ -350,6 +350,20 @@ class NRCBot:
     # BANK DETAILS CONFIGURATION
     # ============================================
 
+    def click_confirm_button(self):
+        """Click the Confirm button when it appears"""
+        try:
+            confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
+            if confirm_btn.is_displayed() and confirm_btn.is_enabled():
+                self.click_element(confirm_btn)
+                print("   ✅ Clicked Confirm button")
+                self.screenshot("confirm_clicked")
+                time.sleep(2)
+                return True
+        except:
+            pass
+        return False
+
     def set_bank_details(self, login_data):
         """Set up bank details for withdrawal"""
         print("   🏦 Setting up bank details...")
@@ -434,6 +448,12 @@ class NRCBot:
         """Set fund password"""
         print("   🔑 Setting fund password...")
         try:
+            # Click on Fund password
+            fund_pw_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Fund password')]")
+            self.click_element(fund_pw_btn)
+            time.sleep(1)
+            self.screenshot("fund_password_page")
+            
             # Find fund password inputs
             fund_inputs = self.driver.find_elements(By.XPATH, "//input[@placeholder='Please enter the new funds password']")
             if fund_inputs:
@@ -454,6 +474,7 @@ class NRCBot:
             return False
         except Exception as e:
             print(f"   ⚠️ Fund password error: {e}")
+            self.screenshot("fund_password_error")
             return False
 
     def complete_withdrawal(self, fund_password, amount="1800"):
@@ -464,6 +485,11 @@ class NRCBot:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(2)
             self.screenshot("withdrawal_page")
+            
+            # Click Confirm if needed (for "You haven't linked your bank card yet" popup)
+            if self.click_confirm_button():
+                print("   ✅ Confirmed bank card message")
+                time.sleep(2)
             
             # Select withdrawal method
             try:
@@ -476,6 +502,9 @@ class NRCBot:
                 print("   💳 Selected OPAY")
                 self.screenshot("method_selected")
                 time.sleep(1)
+                
+                # Click Confirm after selecting bank
+                self.click_confirm_button()
             except:
                 print("   ℹ️ Withdrawal method already selected")
             
@@ -504,6 +533,9 @@ class NRCBot:
                 time.sleep(3)
             except:
                 print("   ℹ️ Withdrawal already submitted")
+            
+            # Click final Confirm if appears
+            self.click_confirm_button()
             
             return True
         except Exception as e:
