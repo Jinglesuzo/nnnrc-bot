@@ -234,7 +234,7 @@ class NRCBot:
         return total_tasks
 
     # ============================================
-    # FUND PASSWORD - FIXED SELECTORS
+    # FUND PASSWORD - FIXED
     # ============================================
 
     def set_fund_password(self, fund_password):
@@ -280,16 +280,17 @@ class NRCBot:
             print(f"   ❌ Could not find confirm password field: {e}")
             return False
 
-        # Click Submit - MULTIPLE SELECTORS
+        # Click Submit - MULTIPLE METHODS
         print("   🔘 Looking for Submit button...")
         submit_clicked = False
         
         # Method 1: By text
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[text()='Submit']")
-            self.click_element(submit_btn)
-            print("   ✅ Clicked Submit (by exact text)")
-            submit_clicked = True
+            if submit_btn.is_displayed() and submit_btn.is_enabled():
+                self.click_element(submit_btn)
+                submit_clicked = True
+                print("   ✅ Clicked Submit (by exact text)")
         except:
             pass
         
@@ -297,9 +298,10 @@ class NRCBot:
         if not submit_clicked:
             try:
                 submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-                self.click_element(submit_btn)
-                print("   ✅ Clicked Submit (by contains text)")
-                submit_clicked = True
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    submit_clicked = True
+                    print("   ✅ Clicked Submit (by contains text)")
             except:
                 pass
         
@@ -307,9 +309,10 @@ class NRCBot:
         if not submit_clicked:
             try:
                 submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-                self.click_element(submit_btn)
-                print("   ✅ Clicked Submit (by type)")
-                submit_clicked = True
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    submit_clicked = True
+                    print("   ✅ Clicked Submit (by type)")
             except:
                 pass
         
@@ -317,9 +320,10 @@ class NRCBot:
         if not submit_clicked:
             try:
                 submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='submit'], button[class*='green']")
-                self.click_element(submit_btn)
-                print("   ✅ Clicked Submit (by class)")
-                submit_clicked = True
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    submit_clicked = True
+                    print("   ✅ Clicked Submit (by class)")
             except:
                 pass
         
@@ -328,8 +332,8 @@ class NRCBot:
             try:
                 submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
                 self.driver.execute_script("arguments[0].click();", submit_btn)
-                print("   ✅ Clicked Submit (JavaScript)")
                 submit_clicked = True
+                print("   ✅ Clicked Submit (JavaScript)")
             except:
                 pass
         
@@ -342,9 +346,21 @@ class NRCBot:
                         text = btn.text.lower()
                         if 'submit' in text or 'confirm' in text:
                             self.click_element(btn)
-                            print(f"   ✅ Clicked button: '{btn.text}'")
                             submit_clicked = True
+                            print(f"   ✅ Clicked button: '{btn.text}' (by scanning)")
                             break
+            except:
+                pass
+        
+        # Method 7: ActionChains
+        if not submit_clicked:
+            try:
+                from selenium.webdriver.common.action_chains import ActionChains
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                actions = ActionChains(self.driver)
+                actions.move_to_element(submit_btn).click().perform()
+                submit_clicked = True
+                print("   ✅ Clicked Submit (ActionChains)")
             except:
                 pass
         
@@ -359,7 +375,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # ADD BANK ACCOUNT - FIXED SELECTORS
+    # ADD BANK ACCOUNT - FIXED SUBMIT
     # ============================================
 
     def add_bank_account(self, login_data):
@@ -381,14 +397,13 @@ class NRCBot:
         except:
             print("   ℹ️ No Authenticate now button needed")
 
-        # Enter real name - MULTIPLE SELECTORS
+        # Enter real name
         name_input = None
         name_selectors = [
             "//input[@placeholder='Please enter a real name']",
             "//input[contains(@placeholder, 'real name')]",
             "//input[contains(@placeholder, 'name')]",
-            "//input[contains(@name, 'name')]",
-            "//input[contains(@id, 'name')]"
+            "//input[contains(@name, 'name')]"
         ]
         
         for selector in name_selectors:
@@ -410,33 +425,102 @@ class NRCBot:
         print(f"   👤 Entered real name: {login_data['real_name']}")
         self.screenshot("04_real_name_entered")
 
-        # Submit real name
+        # ============================================
+        # CLICK SUBMIT - 7 METHODS
+        # ============================================
+        print("   🔘 Looking for Submit button...")
         submit_clicked = False
-        submit_selectors = [
-            "//button[contains(text(), 'Submit')]",
-            "//button[contains(text(), 'submit')]",
-            "//button[@type='submit']",
-            "//button[contains(@class, 'submit')]"
-        ]
         
-        for selector in submit_selectors:
+        # Method 1: By text "Submit"
+        try:
+            submit_btn = self.driver.find_element(By.XPATH, "//button[text()='Submit']")
+            if submit_btn.is_displayed() and submit_btn.is_enabled():
+                self.click_element(submit_btn)
+                submit_clicked = True
+                print("   ✅ Clicked Submit (by exact text)")
+        except:
+            pass
+        
+        # Method 2: By contains text "Submit"
+        if not submit_clicked:
             try:
-                submit_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
-                if submit_btn:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
                     self.click_element(submit_btn)
                     submit_clicked = True
-                    print(f"   ✅ Submitted real name")
-                    self.screenshot("05_real_name_submitted")
-                    time.sleep(2)
-                    break
+                    print("   ✅ Clicked Submit (by contains text)")
             except:
-                continue
+                pass
         
+        # Method 3: By type="submit"
         if not submit_clicked:
-            print("   ⚠️ Could not submit real name (may already be submitted)")
-            time.sleep(1)
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    submit_clicked = True
+                    print("   ✅ Clicked Submit (by type)")
+            except:
+                pass
+        
+        # Method 4: By CSS class
+        if not submit_clicked:
+            try:
+                submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='submit'], button[class*='green'], button[class*='primary']")
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    submit_clicked = True
+                    print("   ✅ Clicked Submit (by class)")
+            except:
+                pass
+        
+        # Method 5: JavaScript click
+        if not submit_clicked:
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
+                time.sleep(0.3)
+                self.driver.execute_script("arguments[0].click();", submit_btn)
+                submit_clicked = True
+                print("   ✅ Clicked Submit (JavaScript)")
+            except:
+                pass
+        
+        # Method 6: Scan all buttons
+        if not submit_clicked:
+            try:
+                buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                for btn in buttons:
+                    if btn.is_displayed() and btn.is_enabled():
+                        text = btn.text.lower()
+                        if 'submit' in text or 'confirm' in text:
+                            self.click_element(btn)
+                            submit_clicked = True
+                            print(f"   ✅ Clicked button: '{btn.text}' (by scanning)")
+                            break
+            except:
+                pass
+        
+        # Method 7: ActionChains
+        if not submit_clicked:
+            try:
+                from selenium.webdriver.common.action_chains import ActionChains
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                actions = ActionChains(self.driver)
+                actions.move_to_element(submit_btn).click().perform()
+                submit_clicked = True
+                print("   ✅ Clicked Submit (ActionChains)")
+            except:
+                pass
+        
+        if submit_clicked:
+            time.sleep(2)
+            self.screenshot("05_real_name_submitted")
+            print("   ✅ Submitted real name")
+        else:
+            print("   ❌ Could not find Submit button")
+            self.screenshot("05_submit_not_found")
+            return False
 
         # Select bank
         try:
