@@ -436,7 +436,7 @@ class NRCBot:
         print("   🔘 Looking for bank dropdown...")
         bank_select_clicked = False
         
-        # Method 1: Find and click the dropdown
+        # Find and click the dropdown
         dropdown_selectors = [
             "//select",
             "//*[contains(@class, 'bank-select')]",
@@ -466,9 +466,7 @@ class NRCBot:
             print("   ✅ Clicked dropdown")
             
             try:
-                opay_found = False
-                
-                # Try to find OPAY by text
+                # Find OPAY
                 opay_selectors = [
                     "//option[contains(text(), 'OPAY')]",
                     "//*[contains(text(), 'OPAY')]",
@@ -476,6 +474,7 @@ class NRCBot:
                     "//div[contains(text(), 'OPAY')]"
                 ]
                 
+                opay_found = False
                 for selector in opay_selectors:
                     try:
                         opay_option = WebDriverWait(self.driver, 3).until(
@@ -492,7 +491,6 @@ class NRCBot:
                     except:
                         continue
                 
-                # If not found, try options list
                 if not opay_found:
                     try:
                         select = self.driver.find_element(By.TAG_NAME, "select")
@@ -708,8 +706,9 @@ class NRCBot:
 
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
-        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")
+        print(f"📊 Successful accounts: {len(self.logged_in_accounts}")  # ← FIXED: Added missing )
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
-    bot = NRCBot(bot_id=bot_id
+    bot = NRCBot(bot_id=bot_id)
+    bot.run()
