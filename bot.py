@@ -534,4 +534,20 @@ class NRCBot:
 
     def run(self):
         print("="*50)
-        print(f"
+        print(f"🤖 BOT {self.bot_id} STARTING")
+        print("="*50)
+
+        for login_data in self.logins:
+            if self.process_account(login_data):
+                print(f"   ✅ SUCCESS for {login_data['phone']}")
+            else:
+                print(f"   ❌ FAILED for {login_data['phone']}")
+            time.sleep(3)
+
+        self.driver.quit()
+        print(f"\n✅ Bot {self.bot_id} Done!")
+
+if __name__ == "__main__":
+    bot_id = int(os.environ.get('BOT_ID', 1))
+    bot = NRCBot(bot_id=bot_id)
+    bot.run()
