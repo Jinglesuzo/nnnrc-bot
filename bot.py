@@ -186,7 +186,7 @@ class NRCBot:
         return True
 
     # ============================================
-    # TASKS
+    # TASKS - FIXED TO COMPLETE ALL 6
     # ============================================
 
     def do_tasks(self):
@@ -199,16 +199,25 @@ class NRCBot:
         
         total_tasks = 0
         max_tasks = 6
+        max_attempts = 30
         
-        while total_tasks < max_tasks:
+        for attempt in range(max_attempts):
+            if total_tasks >= max_tasks:
+                break
+                
             try:
                 read_btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
                 visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
                 
                 if not visible_btns:
-                    print(f"   ℹ️ No more tasks found (completed {total_tasks})")
-                    self.screenshot("no_more_tasks")
-                    break
+                    print(f"   ⏳ No read tasks found (attempt {attempt+1}/{max_attempts})")
+                    time.sleep(2)
+                    if attempt > 5:
+                        print("   🔄 Refreshing page...")
+                        self.driver.refresh()
+                        time.sleep(3)
+                        self.screenshot("tasks_refreshed")
+                    continue
                 
                 btn = visible_btns[0]
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
@@ -216,11 +225,12 @@ class NRCBot:
                 
                 self.click_element(btn)
                 total_tasks += 1
-                print(f"   📖 Clicked read task {total_tasks}")
+                print(f"   📖 Clicked read task {total_tasks}/6")
                 self.screenshot(f"task_{total_tasks}_clicked")
                 
                 print(f"   ⏳ Waiting 20 seconds for task {total_tasks} to complete...")
                 time.sleep(20)
+                print(f"   ✅ Task {total_tasks} done")
                 self.screenshot(f"task_{total_tasks}_done")
                 
                 try:
@@ -232,11 +242,47 @@ class NRCBot:
                 except:
                     pass
                 
+                self.driver.execute_script("window.scrollBy(0, 100);")
+                time.sleep(0.5)
+                
             except Exception as e:
                 print(f"   ⚠️ Task error: {e}")
-                self.screenshot(f"task_error")
                 time.sleep(1)
                 continue
+        
+        if total_tasks < max_tasks:
+            print(f"   ⚠️ Only completed {total_tasks}/{max_tasks} tasks. Refreshing and retrying...")
+            self.driver.refresh()
+            time.sleep(3)
+            self.screenshot("tasks_retry")
+            
+            remaining = max_tasks - total_tasks
+            for i in range(remaining):
+                try:
+                    read_btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
+                    visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
+                    
+                    if not visible_btns:
+                        print(f"   ⏳ No more tasks found")
+                        break
+                    
+                    btn = visible_btns[0]
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                    time.sleep(0.5)
+                    
+                    self.click_element(btn)
+                    total_tasks += 1
+                    print(f"   📖 Clicked read task {total_tasks}/6")
+                    self.screenshot(f"task_{total_tasks}_clicked_retry")
+                    
+                    print(f"   ⏳ Waiting 20 seconds...")
+                    time.sleep(20)
+                    print(f"   ✅ Task {total_tasks} done")
+                    self.screenshot(f"task_{total_tasks}_done_retry")
+                    
+                except Exception as e:
+                    print(f"   ⚠️ Retry task error: {e}")
+                    break
         
         print(f"   ✅ Completed {total_tasks} tasks")
         self.screenshot("tasks_completed")
@@ -344,7 +390,6 @@ class NRCBot:
         self.screenshot("01_bank_page")
         print("   ✅ Bank setup page loaded")
         
-        # Authenticate now if needed
         try:
             auth_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
             if auth_btn.is_displayed():
@@ -355,7 +400,6 @@ class NRCBot:
         except:
             print("   ℹ️ No Authenticate now button needed")
 
-        # Enter real name
         name_input = None
         name_selectors = [
             "//input[@placeholder='Please enter a real name']",
@@ -383,7 +427,6 @@ class NRCBot:
         print(f"   👤 Entered real name: {login_data['real_name']}")
         self.screenshot("04_real_name_entered")
 
-        # Submit real name
         print("   🔘 Looking for Submit button...")
         submit_clicked = False
         
@@ -429,10 +472,6 @@ class NRCBot:
             self.screenshot("05_submit_not_found")
             return False
 
-        # ============================================
-        # SELECT BANK - CLICK PLACEHOLDER FIRST
-        # ============================================
-        
         print("   🔘 Looking for bank name field...")
         bank_field_clicked = False
         
@@ -481,7 +520,6 @@ class NRCBot:
             self.screenshot("06_bank_field_not_found")
             return False
 
-        # Now look for OPAY
         print("   🔘 Looking for OPAY...")
         opay_clicked = False
         
@@ -515,7 +553,6 @@ class NRCBot:
             self.screenshot("07_opay_not_found")
             return False
 
-        # Click Confirm button if present
         try:
             confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
             if confirm_btn.is_displayed() and confirm_btn.is_enabled():
@@ -526,7 +563,6 @@ class NRCBot:
         except:
             pass
 
-        # Enter bank account number
         print("   🔘 Looking for account number field...")
         account_input = None
         
@@ -557,15 +593,10 @@ class NRCBot:
         print(f"   🏦 Entered account: {login_data['bank_account']}")
         self.screenshot("10_account_entered")
 
-        # ============================================
-        # CLICK ADD NOW BUTTON - MULTIPLE METHODS
-        # ============================================
-        
         time.sleep(2)
         print("   🔘 Looking for Add now button...")
         add_clicked = False
 
-        # Method 1: By exact text "Add now"
         try:
             add_btn = self.driver.find_element(By.XPATH, "//button[text()='Add now']")
             if add_btn.is_displayed() and add_btn.is_enabled():
@@ -575,7 +606,6 @@ class NRCBot:
         except:
             pass
 
-        # Method 2: By contains text "Add now"
         if not add_clicked:
             try:
                 add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
@@ -586,7 +616,6 @@ class NRCBot:
             except:
                 pass
 
-        # Method 3: By type submit
         if not add_clicked:
             try:
                 add_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
@@ -597,7 +626,6 @@ class NRCBot:
             except:
                 pass
 
-        # Method 4: By class
         if not add_clicked:
             try:
                 add_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='add'], button[class*='primary'], button[class*='btn']")
@@ -608,7 +636,6 @@ class NRCBot:
             except:
                 pass
 
-        # Method 5: Scan all buttons
         if not add_clicked:
             try:
                 buttons = self.driver.find_elements(By.TAG_NAME, "button")
@@ -620,16 +647,6 @@ class NRCBot:
                             add_clicked = True
                             print(f"   ✅ Clicked button: '{btn.text}' (by scanning)")
                             break
-            except:
-                pass
-
-        # Method 6: JavaScript click
-        if not add_clicked:
-            try:
-                add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
-                self.driver.execute_script("arguments[0].click();", add_btn)
-                add_clicked = True
-                print("   ✅ Clicked Add now (JavaScript)")
             except:
                 pass
 
