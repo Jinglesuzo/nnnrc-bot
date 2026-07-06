@@ -11,7 +11,7 @@ import os
 import sys
 import traceback
 
-# Configuration via environment
+# Configuration
 HEADLESS = os.environ.get("HEADLESS", "1").lower() not in ("0", "false", "no")
 DEBUG = os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes")
 TASK_COUNT = int(os.environ.get("TASK_COUNT", "6"))
@@ -36,7 +36,7 @@ class NRCBot:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        print(f"🤖 Bot {self.bot_id} Starting Chrome (headless={HEADLESS})...")
+        print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
             service = Service(CHROMEDRIVER_PATH)
             self.driver = webdriver.Chrome(service=service, options=options)
@@ -296,23 +296,22 @@ class NRCBot:
             return True
 
     # ============================================
-    # TASKS - FIXED
+    # TASKS
     # ============================================
     def do_tasks(self):
         print("   📋 Starting tasks...")
         
-        # FIRST: Click the Task tab at the bottom
+        # Click Task tab
         try:
-            task_tab = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Task')] | //button[contains(text(), 'Task')] | //*[contains(@class, 'task')]")
+            task_tab = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Task')] | //button[contains(text(), 'Task')]")
             self.click_element(task_tab)
             print("   📋 Clicked Task tab")
             time.sleep(2)
             self.screenshot("tasks_tab_clicked")
         except Exception as e:
             print(f"   ⚠️ Could not click Task tab: {e}")
-            self.screenshot("task_tab_not_found")
 
-        # NOW find and click read buttons
+        # Find and click read buttons
         total = 0
         max_attempts = 30
         
@@ -321,7 +320,6 @@ class NRCBot:
                 break
                 
             try:
-                # Look for "read" buttons - MULTIPLE WAYS
                 read_btn = None
                 
                 # Method 1: By text "read"
@@ -344,13 +342,6 @@ class NRCBot:
                     except:
                         pass
                 
-                # Method 4: By task class
-                if not read_btn:
-                    try:
-                        read_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='task'], button[class*='read']")
-                    except:
-                        pass
-                
                 if not read_btn:
                     print(f"   ⏳ No read tasks found (attempt {attempt+1})")
                     time.sleep(1)
@@ -365,7 +356,7 @@ class NRCBot:
                     print(f"   ✅ Task {total} done")
                     self.screenshot(f"task_{total}_done")
                     
-                    # Close any popups that appear
+                    # Close any popups
                     try:
                         close_btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'Close')] | //button[contains(text(), '×')] | //*[contains(@class, 'close')]")
                         for cb in close_btns:
@@ -388,6 +379,69 @@ class NRCBot:
         return total
 
     # ============================================
+    # FUND PASSWORD - FIXED
+    # ============================================
+    def set_fund_password(self, fund_password):
+        print("   🔑 Setting fund password...")
+        try:
+            # GO TO USER/INFO
+            self.driver.get("https://nnnrc.com/#/user/info")
+            time.sleep(3)
+            self.screenshot("01_user_info_page")
+            print("   ✅ User info page loaded")
+            
+            # Click "Fund password" (Click Settings)
+            fund_pw_btn = self.find_clickable("//*[contains(text(), 'Fund password')]", timeout=10)
+            if fund_pw_btn:
+                self.click_element(fund_pw_btn)
+                time.sleep(2)
+                self.screenshot("02_fund_password_clicked")
+                print("   ✅ Clicked Fund password")
+            else:
+                print("   ❌ Could not find Fund password button")
+                self.screenshot("03_fund_password_not_found")
+                return False
+
+            # Enter new fund password
+            new_pw = self.find_presence("//input[@placeholder='Please enter the new funds password']", timeout=10)
+            if not new_pw:
+                print("   ❌ Could not find 'Please enter the new funds password' input")
+                self.screenshot("04_new_password_not_found")
+                return False
+            new_pw.clear()
+            new_pw.send_keys(fund_password)
+            print(f"   ✅ Entered new fund password: {fund_password}")
+            self.screenshot("05_new_password_entered")
+
+            # Confirm fund password
+            confirm_pw = self.find_presence("//input[@placeholder='Please confirm the fund password']", timeout=10)
+            if not confirm_pw:
+                print("   ❌ Could not find 'Please confirm the fund password' input")
+                self.screenshot("06_confirm_password_not_found")
+                return False
+            confirm_pw.clear()
+            confirm_pw.send_keys(fund_password)
+            print(f"   ✅ Confirmed fund password: {fund_password}")
+            self.screenshot("07_confirm_password_entered")
+
+            # Click Submit
+            submit_btn = self.find_clickable("//button[contains(text(), 'Submit')]", timeout=10)
+            if submit_btn:
+                self.click_element(submit_btn)
+                time.sleep(2)
+                self.screenshot("08_submit_clicked")
+                print("   ✅ Fund password set successfully!")
+                return True
+            else:
+                print("   ❌ Could not find Submit button")
+                self.screenshot("09_submit_not_found")
+                return False
+                
+        except Exception as e:
+            self.log_exception("set_fund_password", e)
+            return False
+
+    # ============================================
     # WITHDRAWAL
     # ============================================
     def complete_withdrawal(self):
@@ -408,51 +462,6 @@ class NRCBot:
                 return False
         except Exception as e:
             self.log_exception("complete_withdrawal", e)
-            return False
-
-    # ============================================
-    # FUND PASSWORD
-    # ============================================
-    def set_fund_password(self, fund_password):
-        print("   🔑 Setting fund password...")
-        try:
-            self.driver.get("https://nnnrc.com/#/user/info")
-            time.sleep(2)
-            self.screenshot("user_info_page")
-
-            fund_pw_btn = self.find_clickable("//*[contains(text(), 'Fund password')]", timeout=6)
-            if fund_pw_btn:
-                self.click_element(fund_pw_btn)
-                time.sleep(1)
-                self.screenshot("fund_password_clicked")
-            else:
-                print("   ⚠️ Fund password button not found")
-
-            new_pw = self.find_presence("//input[@placeholder='Please enter the new funds password']", timeout=4)
-            confirm_pw = self.find_presence("//input[@placeholder='Please confirm the fund password']", timeout=4)
-
-            if not new_pw or not confirm_pw:
-                print("   ❌ Fund password inputs not found")
-                return False
-
-            new_pw.clear()
-            new_pw.send_keys(fund_password)
-            confirm_pw.clear()
-            confirm_pw.send_keys(fund_password)
-            self.screenshot("fund_password_entered")
-
-            submit_btn = self.find_clickable("//button[contains(text(), 'Submit')]", timeout=6)
-            if submit_btn:
-                self.click_element(submit_btn)
-                print("   ✅ Fund password set")
-                time.sleep(2)
-                self.screenshot("fund_password_submitted")
-                return True
-            else:
-                print("   ❌ Submit button not found")
-                return False
-        except Exception as e:
-            self.log_exception("set_fund_password", e)
             return False
 
     # ============================================
@@ -567,6 +576,7 @@ class NRCBot:
         except Exception:
             pass
 
+        # SET FUND PASSWORD
         self.set_fund_password(fund_password)
 
         self.add_bank_account(login_data)
