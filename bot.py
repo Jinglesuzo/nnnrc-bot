@@ -333,7 +333,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # ADD BANK ACCOUNT - DROPDOWN VERSION
+    # ADD BANK ACCOUNT - CLICK OPAY LOGO
     # ============================================
 
     def add_bank_account(self, login_data):
@@ -430,91 +430,72 @@ class NRCBot:
             return False
 
         # ============================================
-        # SELECT BANK - DROPDOWN METHOD
+        # SELECT BANK - CLICK OPAY LOGO/BUTTON
         # ============================================
         
-        print("   🔘 Looking for bank dropdown...")
-        bank_select_clicked = False
+        print("   🔘 Looking for OPAY logo/button...")
+        opay_clicked = False
         
-        # Find and click the dropdown
-        dropdown_selectors = [
-            "//select",
-            "//*[contains(@class, 'bank-select')]",
-            "//*[contains(@class, 'form-select')]",
-            "//*[contains(text(), 'Please select the bank name')]",
-            "//*[contains(text(), '--Please select the bank name--')]",
-            "//div[contains(@class, 'dropdown')]",
-            "//*[contains(@class, 'select')]"
+        # Method 1: Find OPAY by text
+        opay_selectors = [
+            "//*[contains(text(), 'OPAY')]",
+            "//*[contains(text(), 'Opay')]",
+            "//*[text()='OPAY']",
+            "//div[contains(text(), 'OPAY')]",
+            "//span[contains(text(), 'OPAY')]",
+            "//button[contains(text(), 'OPAY')]",
+            "//img[contains(@alt, 'OPAY')]",
+            "//img[contains(@src, 'opay')]"
         ]
         
-        dropdown_element = None
-        for selector in dropdown_selectors:
+        for selector in opay_selectors:
             try:
-                dropdown_element = WebDriverWait(self.driver, 3).until(
+                opay_element = WebDriverWait(self.driver, 5).until(
                     EC.element_to_be_clickable((By.XPATH, selector))
                 )
-                if dropdown_element:
-                    print(f"   ✅ Found dropdown: {selector}")
+                if opay_element:
+                    self.click_element(opay_element)
+                    opay_clicked = True
+                    print("   ✅ Clicked OPAY logo/button")
+                    time.sleep(1)
+                    self.screenshot("06_opay_clicked")
                     break
             except:
                 continue
         
-        if dropdown_element:
-            self.click_element(dropdown_element)
-            time.sleep(1)
-            self.screenshot("06_dropdown_opened")
-            print("   ✅ Clicked dropdown")
-            
+        # Method 2: Find OPAY inside bank container
+        if not opay_clicked:
             try:
-                # Find OPAY
-                opay_selectors = [
-                    "//option[contains(text(), 'OPAY')]",
-                    "//*[contains(text(), 'OPAY')]",
-                    "//li[contains(text(), 'OPAY')]",
-                    "//div[contains(text(), 'OPAY')]"
-                ]
-                
-                opay_found = False
-                for selector in opay_selectors:
-                    try:
-                        opay_option = WebDriverWait(self.driver, 3).until(
-                            EC.element_to_be_clickable((By.XPATH, selector))
-                        )
-                        if opay_option:
-                            self.click_element(opay_option)
-                            opay_found = True
-                            bank_select_clicked = True
-                            print("   ✅ Selected OPAY")
-                            time.sleep(1)
-                            self.screenshot("07_opay_selected")
-                            break
-                    except:
-                        continue
-                
-                if not opay_found:
-                    try:
-                        select = self.driver.find_element(By.TAG_NAME, "select")
-                        options = select.find_elements(By.TAG_NAME, "option")
-                        for option in options:
-                            if 'OPAY' in option.text.upper():
-                                self.click_element(option)
-                                bank_select_clicked = True
-                                print("   ✅ Selected OPAY (from options)")
-                                time.sleep(1)
-                                self.screenshot("07_opay_selected")
-                                break
-                    except:
-                        pass
-            except Exception as e:
-                print(f"   ⚠️ Could not select OPAY: {e}")
-        else:
-            print("   ❌ Could not find dropdown")
-            self.screenshot("06_dropdown_not_found")
-            return False
+                bank_container = self.driver.find_element(By.XPATH, "//div[contains(@class, 'bank')] | //div[contains(@class, 'Bank')]")
+                if bank_container:
+                    opay_inside = bank_container.find_element(By.XPATH, ".//*[contains(text(), 'OPAY')]")
+                    if opay_inside:
+                        self.click_element(opay_inside)
+                        opay_clicked = True
+                        print("   ✅ Clicked OPAY (inside bank container)")
+                        time.sleep(1)
+                        self.screenshot("06_opay_clicked")
+            except:
+                pass
         
-        if not bank_select_clicked:
-            print("   ❌ Could not select bank")
-            self.screenshot("07_bank_select_failed")
+        # Method 3: Find any clickable element with OPAY
+        if not opay_clicked:
+            try:
+                all_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'OPAY')]")
+                for element in all_elements:
+                    if element.is_displayed():
+                        self.click_element(element)
+                        opay_clicked = True
+                        print("   ✅ Clicked OPAY (by scanning)")
+                        time.sleep(1)
+                        self.screenshot("06_opay_clicked")
+                        break
+            except:
+                pass
+        
+        if not opay_clicked:
+            print("   ❌ Could not find OPAY")
+            self.screenshot("06_opay_not_found")
             return False
 
         # Click Confirm button if present
@@ -524,7 +505,7 @@ class NRCBot:
                 self.click_element(confirm_btn)
                 print("   ✅ Clicked Confirm")
                 time.sleep(1)
-                self.screenshot("08_confirm_clicked")
+                self.screenshot("07_confirm_clicked")
         except:
             pass
 
@@ -552,12 +533,12 @@ class NRCBot:
         
         if not account_input:
             print("   ❌ Could not find account number field")
-            self.screenshot("09_account_field_not_found")
+            self.screenshot("08_account_field_not_found")
             return False
         
         self.type_text(account_input, login_data['bank_account'])
         print(f"   🏦 Entered account: {login_data['bank_account']}")
-        self.screenshot("10_account_entered")
+        self.screenshot("09_account_entered")
 
         # Click Add now
         print("   🔘 Looking for Add now button...")
@@ -581,7 +562,7 @@ class NRCBot:
                     add_clicked = True
                     print(f"   ✅ Clicked Add now")
                     time.sleep(2)
-                    self.screenshot("11_bank_added")
+                    self.screenshot("10_bank_added")
                     break
             except:
                 continue
@@ -706,7 +687,7 @@ class NRCBot:
 
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
-        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")  # ← FIXED
+        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
