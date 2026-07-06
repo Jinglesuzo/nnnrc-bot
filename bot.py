@@ -406,65 +406,73 @@ class NRCBot:
             return False
 
     # ============================================
-    # FUND PASSWORD + SIGN OUT
+    # FUND PASSWORD + SIGN OUT (CORRECT URL)
     # ============================================
 
     def set_fund_password_and_signout(self, fund_password):
-        """Click Fund Password, enter 3333, click Submit, then Sign out"""
+        """Go to /user/info, click Fund password, enter 3333, Submit, then Sign out"""
         
-        # 1. Click "Fund password" (Click Settings)
-        print("   🔑 Looking for Fund password...")
+        # 1. Go to the correct user info page
+        print("   🔑 Navigating to user info page...")
         try:
-            fund_pw_btn = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Fund password')]")
-            if fund_pw_btn.is_displayed() and fund_pw_btn.is_enabled():
-                self.click_element(fund_pw_btn)
-                time.sleep(2)
-                self.screenshot("01_fund_password_clicked")
-                print("   ✅ Clicked Fund password")
-            else:
-                print("   ❌ Fund password not found")
-                self.screenshot("01_fund_password_not_found")
-                return False
+            self.driver.get("https://nnnrc.com/#/user/info")
+            time.sleep(3)
+            self.screenshot("01_user_info_page")
+            print("   ✅ User info page loaded")
         except Exception as e:
-            print(f"   ❌ Error clicking Fund password: {e}")
+            print(f"   ❌ Could not load user info page: {e}")
             return False
 
-        # 2. Enter new fund password (3333)
+        # 2. Click "Fund password"
+        print("   🔑 Looking for Fund password...")
+        try:
+            fund_pw_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Fund password')]"))
+            )
+            self.click_element(fund_pw_btn)
+            time.sleep(2)
+            self.screenshot("02_fund_password_clicked")
+            print("   ✅ Clicked Fund password")
+        except Exception as e:
+            print(f"   ❌ Could not find Fund password: {e}")
+            return False
+
+        # 3. Enter new fund password
         try:
             new_password_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the new funds password']"))
             )
             self.type_text(new_password_field, fund_password)
+            self.screenshot("03_new_password_entered")
             print(f"   ✅ Entered new fund password: {fund_password}")
-            self.screenshot("02_fund_password_entered")
         except Exception as e:
             print(f"   ❌ Could not find new password field: {e}")
             return False
 
-        # 3. Confirm fund password (3333)
+        # 4. Confirm fund password
         try:
             confirm_password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
             self.type_text(confirm_password_field, fund_password)
+            self.screenshot("04_confirm_password_entered")
             print(f"   ✅ Confirmed fund password: {fund_password}")
-            self.screenshot("03_fund_password_confirmed")
         except Exception as e:
             print(f"   ❌ Could not find confirm password field: {e}")
             return False
 
-        # 4. Click Submit
+        # 5. Click Submit
         try:
             submit_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit')]"))
             )
             self.click_element(submit_btn)
             time.sleep(2)
-            self.screenshot("04_fund_password_submitted")
+            self.screenshot("05_submit_clicked")
             print("   ✅ Submitted fund password")
         except Exception as e:
             print(f"   ❌ Could not click Submit: {e}")
             return False
 
-        # 5. Click Sign out
+        # 6. Click Sign out
         print("   🔍 Looking for Sign out...")
         try:
             signout_selectors = [
@@ -489,12 +497,12 @@ class NRCBot:
             if signout_btn:
                 self.click_element(signout_btn)
                 time.sleep(2)
-                self.screenshot("05_signed_out")
+                self.screenshot("06_signed_out")
                 print("   ✅ Signed out successfully")
                 return True
             else:
                 print("   ❌ Sign out not found")
-                self.screenshot("05_signout_not_found")
+                self.screenshot("06_signout_not_found")
                 return False
         except Exception as e:
             print(f"   ❌ Error clicking Sign out: {e}")
@@ -620,7 +628,7 @@ class NRCBot:
         # 4. Go to withdrawal and click Confirm
         self.complete_withdrawal(fund_password, "1800")
         
-        # 5. Set fund password and sign out
+        # 5. Go to /user/info, set fund password, and sign out
         self.set_fund_password_and_signout(fund_password)
         
         return True
