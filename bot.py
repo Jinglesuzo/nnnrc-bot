@@ -71,20 +71,12 @@ class NRCBot:
                         })
             print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
         except:
-            self.logins = [{'phone': '08057536473', 'password': 'people56', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
-
-    def clear_field(self, element):
-        try:
-            element.click()
-            time.sleep(0.1)
-            element.clear()
-            time.sleep(0.1)
-            return True
-        except:
-            return False
+            self.logins = [{'phone': '08053655423', 'password': 'high555', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
 
     def type_text(self, element, text):
-        self.clear_field(element)
+        element.click()
+        element.clear()
+        time.sleep(0.1)
         element.send_keys(text)
         time.sleep(0.1)
 
@@ -102,7 +94,110 @@ class NRCBot:
                 return False
 
     # ============================================
-    # LOGIN - SIMPLE AND RELIABLE
+    # LOGIN BUTTON - ALL METHODS
+    # ============================================
+
+    def click_login_button(self):
+        """Click login button using EVERY possible method"""
+        print("   🔘 Clicking login button...")
+        
+        # Method 1: Find by text "Log in now" and click
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
+            if btn.is_displayed():
+                self.click_element(btn)
+                print("   ✅ Clicked by exact text: 'Log in now'")
+                return True
+        except:
+            pass
+        
+        # Method 2: Find by contains text "Log in now"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            if btn.is_displayed():
+                self.click_element(btn)
+                print("   ✅ Clicked by contains text: 'Log in now'")
+                return True
+        except:
+            pass
+        
+        # Method 3: Find by text "Login"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Login')]")
+            if btn.is_displayed():
+                self.click_element(btn)
+                print("   ✅ Clicked by contains text: 'Login'")
+                return True
+        except:
+            pass
+        
+        # Method 4: Find by type="submit"
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+            if btn.is_displayed():
+                self.click_element(btn)
+                print("   ✅ Clicked by type='submit'")
+                return True
+        except:
+            pass
+        
+        # Method 5: Find by CSS class
+        try:
+            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='login'], button[class*='green'], button[class*='primary'], button[class*='submit']")
+            if btn.is_displayed():
+                self.click_element(btn)
+                print("   ✅ Clicked by CSS class")
+                return True
+        except:
+            pass
+        
+        # Method 6: Find any button with "log" in text
+        try:
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                if btn.is_displayed() and btn.is_enabled():
+                    text = btn.text.lower()
+                    if 'log' in text or 'in' in text:
+                        self.click_element(btn)
+                        print(f"   ✅ Clicked button by text: '{btn.text}'")
+                        return True
+        except:
+            pass
+        
+        # Method 7: JavaScript click directly
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            self.driver.execute_script("arguments[0].click();", btn)
+            print("   ✅ Clicked with JavaScript")
+            return True
+        except:
+            pass
+        
+        # Method 8: Submit the form
+        try:
+            form = self.driver.find_element(By.TAG_NAME, "form")
+            self.driver.execute_script("arguments[0].submit();", form)
+            print("   ✅ Submitted form directly")
+            return True
+        except:
+            pass
+        
+        # Method 9: Click using ActionChains
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            actions = ActionChains(self.driver)
+            actions.move_to_element(btn).click().perform()
+            print("   ✅ Clicked with ActionChains")
+            return True
+        except:
+            pass
+        
+        print("   ❌ Could not click login button")
+        return False
+
+    # ============================================
+    # LOGIN
     # ============================================
 
     def login(self, phone, password):
@@ -116,40 +211,47 @@ class NRCBot:
             phone_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter your phone number']"))
             )
-            phone_field.clear()
-            phone_field.send_keys(phone)
+            self.type_text(phone_field, phone)
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
             
             # Password
             password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter login password']")
-            password_field.clear()
-            password_field.send_keys(password)
+            self.type_text(password_field, password)
             print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
-            # Login button - SIMPLE CLICK
-            login_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Log in now')]"))
-            )
-            login_btn.click()
-            print(f"   ✅ Clicked login")
-            self.screenshot("04_after_login_click")
+            # Click login button (ALL METHODS)
+            if not self.click_login_button():
+                print("   ❌ Could not click login button")
+                self.screenshot("04_login_button_failed")
+                return False
             
-            # Wait for login to process
             time.sleep(5)
             self.screenshot("05_after_login_wait")
             
-            # Check if login successful
+            # Check result
             page_source = self.driver.page_source.lower()
+            
             if "important notice" in page_source or "cooperative wealth zone" in page_source:
                 print(f"   ✅ Login success!")
                 self.logged_in_accounts.append(phone)
                 return True
-            else:
-                print(f"   ❌ Login failed")
-                self.screenshot("06_login_failed")
+            
+            if "invalid" in page_source or "incorrect" in page_source:
+                print(f"   ❌ Invalid credentials - wrong password")
+                self.screenshot("06_invalid_credentials")
                 return False
+            
+            if "log in now" in page_source:
+                print(f"   ❌ Still on login page - login failed")
+                self.screenshot("06_still_on_login")
+                return False
+            
+            print(f"   ❌ Login failed - unknown reason")
+            self.screenshot("06_login_failed")
+            return False
+            
         except Exception as e:
             print(f"   ❌ Error: {e}")
             return False
@@ -208,7 +310,6 @@ class NRCBot:
     def do_tasks(self):
         print("   📋 Starting tasks...")
         
-        # Click Task tab
         try:
             task_tab = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Task')]")
             self.click_element(task_tab)
@@ -245,7 +346,6 @@ class NRCBot:
             time.sleep(2)
             self.screenshot("withdrawal_page")
             
-            # Click Confirm
             confirm_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Confirm')]"))
             )
@@ -269,7 +369,6 @@ class NRCBot:
             time.sleep(2)
             self.screenshot("user_info_page")
             
-            # Click Fund password
             fund_pw_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Fund password')]"))
             )
@@ -277,20 +376,17 @@ class NRCBot:
             time.sleep(1)
             self.screenshot("fund_password_clicked")
             
-            # Enter new password
             new_pw = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the new funds password']"))
             )
             new_pw.clear()
             new_pw.send_keys(fund_password)
             
-            # Confirm password
             confirm_pw = self.driver.find_element(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
             confirm_pw.clear()
             confirm_pw.send_keys(fund_password)
             self.screenshot("fund_password_entered")
             
-            # Click Submit
             submit_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit')]"))
             )
@@ -314,7 +410,6 @@ class NRCBot:
             time.sleep(2)
             self.screenshot("bank_page")
             
-            # Click Add a bank account
             add_bank = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Add a bank account')]"))
             )
@@ -322,7 +417,6 @@ class NRCBot:
             time.sleep(1)
             self.screenshot("add_bank_clicked")
             
-            # Click Authenticate now
             auth_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Authenticate now')]"))
             )
@@ -330,7 +424,6 @@ class NRCBot:
             time.sleep(1)
             self.screenshot("authenticate_clicked")
             
-            # Enter real name
             name_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter a real name']"))
             )
@@ -339,7 +432,6 @@ class NRCBot:
             print(f"   👤 Entered name: {login_data['real_name']}")
             self.screenshot("name_entered")
             
-            # Submit real name
             submit_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit')]"))
             )
@@ -347,7 +439,6 @@ class NRCBot:
             time.sleep(1)
             self.screenshot("name_submitted")
             
-            # Select bank
             bank_select = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), '--Please select the bank name--')]"))
             )
@@ -361,7 +452,6 @@ class NRCBot:
             print(f"   🏦 Selected bank: {login_data['bank_name']}")
             self.screenshot("bank_selected")
             
-            # Enter account number
             account_input = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the bank account number']"))
             )
@@ -370,7 +460,6 @@ class NRCBot:
             print(f"   🏦 Entered account: {login_data['bank_account']}")
             self.screenshot("account_entered")
             
-            # Click Add now
             add_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Add now')]"))
             )
