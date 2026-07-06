@@ -333,7 +333,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # ADD BANK ACCOUNT - CLICK PLACEHOLDER FIRST
+    # ADD BANK ACCOUNT
     # ============================================
 
     def add_bank_account(self, login_data):
@@ -436,7 +436,6 @@ class NRCBot:
         print("   🔘 Looking for bank name field...")
         bank_field_clicked = False
         
-        # Click the bank name field/placeholder
         bank_selectors = [
             "//*[contains(text(), 'Please select the bank name')]",
             "//*[contains(text(), '--Please select the bank name--')]",
@@ -466,7 +465,6 @@ class NRCBot:
             self.screenshot("06_bank_field_clicked")
             print("   ✅ Clicked bank name field")
         else:
-            # Try clicking the "Bank Name" text
             try:
                 bank_text = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Bank Name')]")
                 if bank_text:
@@ -559,34 +557,85 @@ class NRCBot:
         print(f"   🏦 Entered account: {login_data['bank_account']}")
         self.screenshot("10_account_entered")
 
-        # Click Add now
+        # ============================================
+        # CLICK ADD NOW BUTTON - MULTIPLE METHODS
+        # ============================================
+        
+        time.sleep(2)
         print("   🔘 Looking for Add now button...")
         add_clicked = False
-        
-        add_selectors = [
-            "//button[contains(text(), 'Add now')]",
-            "//button[contains(text(), 'Add')]",
-            "//button[contains(@class, 'add')]",
-            "//button[@type='submit']",
-            "//button[contains(@class, 'btn-primary')]"
-        ]
-        
-        for selector in add_selectors:
+
+        # Method 1: By exact text "Add now"
+        try:
+            add_btn = self.driver.find_element(By.XPATH, "//button[text()='Add now']")
+            if add_btn.is_displayed() and add_btn.is_enabled():
+                self.click_element(add_btn)
+                add_clicked = True
+                print("   ✅ Clicked Add now (by exact text)")
+        except:
+            pass
+
+        # Method 2: By contains text "Add now"
+        if not add_clicked:
             try:
-                add_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
+                add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
                 if add_btn.is_displayed() and add_btn.is_enabled():
                     self.click_element(add_btn)
                     add_clicked = True
-                    print(f"   ✅ Clicked Add now")
-                    time.sleep(2)
-                    self.screenshot("11_bank_added")
-                    break
+                    print("   ✅ Clicked Add now (by contains text)")
             except:
-                continue
-        
+                pass
+
+        # Method 3: By type submit
+        if not add_clicked:
+            try:
+                add_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+                if add_btn.is_displayed() and add_btn.is_enabled():
+                    self.click_element(add_btn)
+                    add_clicked = True
+                    print("   ✅ Clicked Add now (by type)")
+            except:
+                pass
+
+        # Method 4: By class
+        if not add_clicked:
+            try:
+                add_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='add'], button[class*='primary'], button[class*='btn']")
+                if add_btn.is_displayed() and add_btn.is_enabled():
+                    self.click_element(add_btn)
+                    add_clicked = True
+                    print("   ✅ Clicked Add now (by class)")
+            except:
+                pass
+
+        # Method 5: Scan all buttons
+        if not add_clicked:
+            try:
+                buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                for btn in buttons:
+                    if btn.is_displayed() and btn.is_enabled():
+                        text = btn.text.lower()
+                        if 'add' in text or 'submit' in text:
+                            self.click_element(btn)
+                            add_clicked = True
+                            print(f"   ✅ Clicked button: '{btn.text}' (by scanning)")
+                            break
+            except:
+                pass
+
+        # Method 6: JavaScript click
+        if not add_clicked:
+            try:
+                add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
+                self.driver.execute_script("arguments[0].click();", add_btn)
+                add_clicked = True
+                print("   ✅ Clicked Add now (JavaScript)")
+            except:
+                pass
+
         if add_clicked:
+            time.sleep(2)
+            self.screenshot("11_bank_added")
             print("   ✅ Bank card added successfully!")
             return True
         else:
