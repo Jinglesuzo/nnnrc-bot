@@ -706,7 +706,7 @@ class NRCBot:
 
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
-        print(f"📊 Successful accounts: {len(self.logged_in_accounts}")  # ← FIXED: Added missing )
+        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")  # ← FIXED
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
