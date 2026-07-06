@@ -333,7 +333,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # ADD BANK ACCOUNT - CLICK OPAY LOGO
+    # ADD BANK ACCOUNT - CLICK PLACEHOLDER FIRST
     # ============================================
 
     def add_bank_account(self, login_data):
@@ -430,22 +430,71 @@ class NRCBot:
             return False
 
         # ============================================
-        # SELECT BANK - CLICK OPAY LOGO/BUTTON
+        # SELECT BANK - CLICK PLACEHOLDER FIRST
         # ============================================
         
-        print("   🔘 Looking for OPAY logo/button...")
+        print("   🔘 Looking for bank name field...")
+        bank_field_clicked = False
+        
+        # Click the bank name field/placeholder
+        bank_selectors = [
+            "//*[contains(text(), 'Please select the bank name')]",
+            "//*[contains(text(), '--Please select the bank name--')]",
+            "//*[contains(@class, 'bank-name')]",
+            "//*[contains(@class, 'bank-select')]",
+            "//*[contains(@placeholder, 'bank')]",
+            "//div[contains(@class, 'select')]",
+            "//*[contains(@class, 'form-control')]"
+        ]
+        
+        bank_field = None
+        for selector in bank_selectors:
+            try:
+                bank_field = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                if bank_field:
+                    bank_field_clicked = True
+                    print(f"   ✅ Found bank field: {selector}")
+                    break
+            except:
+                continue
+        
+        if bank_field:
+            self.click_element(bank_field)
+            time.sleep(1.5)
+            self.screenshot("06_bank_field_clicked")
+            print("   ✅ Clicked bank name field")
+        else:
+            # Try clicking the "Bank Name" text
+            try:
+                bank_text = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Bank Name')]")
+                if bank_text:
+                    self.click_element(bank_text)
+                    time.sleep(1.5)
+                    bank_field_clicked = True
+                    print("   ✅ Clicked 'Bank Name' text")
+                    self.screenshot("06_bank_field_clicked")
+            except:
+                pass
+        
+        if not bank_field_clicked:
+            print("   ❌ Could not find bank name field")
+            self.screenshot("06_bank_field_not_found")
+            return False
+
+        # Now look for OPAY
+        print("   🔘 Looking for OPAY...")
         opay_clicked = False
         
-        # Method 1: Find OPAY by text
         opay_selectors = [
             "//*[contains(text(), 'OPAY')]",
             "//*[contains(text(), 'Opay')]",
-            "//*[text()='OPAY']",
             "//div[contains(text(), 'OPAY')]",
             "//span[contains(text(), 'OPAY')]",
             "//button[contains(text(), 'OPAY')]",
             "//img[contains(@alt, 'OPAY')]",
-            "//img[contains(@src, 'opay')]"
+            "//li[contains(text(), 'OPAY')]"
         ]
         
         for selector in opay_selectors:
@@ -456,46 +505,16 @@ class NRCBot:
                 if opay_element:
                     self.click_element(opay_element)
                     opay_clicked = True
-                    print("   ✅ Clicked OPAY logo/button")
+                    print("   ✅ Clicked OPAY")
                     time.sleep(1)
-                    self.screenshot("06_opay_clicked")
+                    self.screenshot("07_opay_clicked")
                     break
             except:
                 continue
         
-        # Method 2: Find OPAY inside bank container
-        if not opay_clicked:
-            try:
-                bank_container = self.driver.find_element(By.XPATH, "//div[contains(@class, 'bank')] | //div[contains(@class, 'Bank')]")
-                if bank_container:
-                    opay_inside = bank_container.find_element(By.XPATH, ".//*[contains(text(), 'OPAY')]")
-                    if opay_inside:
-                        self.click_element(opay_inside)
-                        opay_clicked = True
-                        print("   ✅ Clicked OPAY (inside bank container)")
-                        time.sleep(1)
-                        self.screenshot("06_opay_clicked")
-            except:
-                pass
-        
-        # Method 3: Find any clickable element with OPAY
-        if not opay_clicked:
-            try:
-                all_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'OPAY')]")
-                for element in all_elements:
-                    if element.is_displayed():
-                        self.click_element(element)
-                        opay_clicked = True
-                        print("   ✅ Clicked OPAY (by scanning)")
-                        time.sleep(1)
-                        self.screenshot("06_opay_clicked")
-                        break
-            except:
-                pass
-        
         if not opay_clicked:
             print("   ❌ Could not find OPAY")
-            self.screenshot("06_opay_not_found")
+            self.screenshot("07_opay_not_found")
             return False
 
         # Click Confirm button if present
@@ -505,7 +524,7 @@ class NRCBot:
                 self.click_element(confirm_btn)
                 print("   ✅ Clicked Confirm")
                 time.sleep(1)
-                self.screenshot("07_confirm_clicked")
+                self.screenshot("08_confirm_clicked")
         except:
             pass
 
@@ -533,12 +552,12 @@ class NRCBot:
         
         if not account_input:
             print("   ❌ Could not find account number field")
-            self.screenshot("08_account_field_not_found")
+            self.screenshot("09_account_field_not_found")
             return False
         
         self.type_text(account_input, login_data['bank_account'])
         print(f"   🏦 Entered account: {login_data['bank_account']}")
-        self.screenshot("09_account_entered")
+        self.screenshot("10_account_entered")
 
         # Click Add now
         print("   🔘 Looking for Add now button...")
@@ -562,7 +581,7 @@ class NRCBot:
                     add_clicked = True
                     print(f"   ✅ Clicked Add now")
                     time.sleep(2)
-                    self.screenshot("10_bank_added")
+                    self.screenshot("11_bank_added")
                     break
             except:
                 continue
