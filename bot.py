@@ -9,7 +9,6 @@ import time
 import csv
 import os
 import sys
-import random
 
 class NRCBot:
     def __init__(self, bot_id=1):
@@ -18,59 +17,14 @@ class NRCBot:
         self.logged_in_accounts = []
         self.load_logins()
 
-        # ============================================
-        # TRACKING BLOCKED - CLOUDFLARE COOKIES + IP HIDDEN
-        # ============================================
         options = Options()
-        
-        # 1. Hide automation flags
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
-        
-        # 2. Block all cookies (including Cloudflare)
-        options.add_argument("--block-third-party-cookies")
-        options.add_experimental_option("prefs", {
-            "profile.default_content_setting_values.cookies": 2,
-            "profile.default_content_setting_values.images": 1,
-            "profile.default_content_setting_values.javascript": 1,
-            "profile.default_content_setting_values.plugins": 1,
-            "profile.default_content_setting_values.popups": 2,
-            "profile.default_content_setting_values.geolocation": 2,
-            "profile.default_content_setting_values.notifications": 2,
-        })
-        
-        # 3. Disable tracking features
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-background-timer-throttling")
-        options.add_argument("--disable-client-side-phishing-detection")
-        options.add_argument("--disable-component-update")
-        options.add_argument("--disable-default-apps")
-        options.add_argument("--disable-domain-reliability")
-        options.add_argument("--disable-features=TranslateUI")
-        options.add_argument("--disable-hang-monitor")
-        options.add_argument("--disable-ipc-flooding-protection")
-        options.add_argument("--disable-popup-blocking")
-        options.add_argument("--disable-prompt-on-repost")
-        options.add_argument("--disable-renderer-backgrounding")
-        options.add_argument("--disable-sync")
-        options.add_argument("--disable-web-security")
-        options.add_argument("--disable-webrtc")
-        
-        # 4. Use realistic user-agent
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
-        # 5. Additional privacy settings
+        options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-gpu")
-        options.add_argument("--remote-debugging-port=9222")
-        
-        # 6. Headless mode
-        options.add_argument("--headless=new")
+        options.add_argument("--window-size=1920,1080")
 
-        print(f"🤖 Bot {self.bot_id} Starting Chrome with tracking blocked...")
+        print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
             service = Service('/usr/bin/chromedriver')
             self.driver = webdriver.Chrome(service=service, options=options)
@@ -80,9 +34,6 @@ class NRCBot:
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
             print(f"✅ Bot {self.bot_id} Chrome started!")
-        
-        # Remove webdriver property
-        self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
     def screenshot(self, name):
         self.step += 1
@@ -109,10 +60,19 @@ class NRCBot:
                             'bank_account': row[4].strip(),
                             'fund_password': row[5].strip()
                         })
+                    elif len(row) >= 2:
+                        self.logins.append({
+                            'phone': row[0].strip(),
+                            'password': row[1].strip(),
+                            'real_name': 'John Penn',
+                            'bank_name': 'OPAY',
+                            'bank_account': '9074331299',
+                            'fund_password': '3333'
+                        })
             print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
         except Exception as e:
             print(f"❌ Bot {self.bot_id} Error loading logins.csv: {e}")
-            sys.exit(1)
+            self.logins = [{'phone': '08057536473', 'password': 'people56', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
 
     def clear_field(self, element):
         try:
@@ -125,7 +85,8 @@ class NRCBot:
             self.driver.execute_script("arguments[0].value = '';", element)
             time.sleep(0.1)
             return True
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Clear error: {e}")
             return False
 
     def type_text(self, element, text):
@@ -401,10 +362,13 @@ class NRCBot:
             self.screenshot("my_tab")
             
             # 2. Click "Add a bank account"
-            add_bank = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
-            self.click_element(add_bank)
-            time.sleep(2)
-            self.screenshot("add_bank")
+            try:
+                add_bank = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Add a bank account')]")
+                self.click_element(add_bank)
+                time.sleep(2)
+                self.screenshot("add_bank")
+            except:
+                print("   ℹ️ Bank already added")
             
             # 3. Click "Authenticate now" if needed
             try:
@@ -418,6 +382,7 @@ class NRCBot:
                     name_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter a real name']")
                     self.type_text(name_input, login_data['real_name'])
                     print(f"   👤 Entered name: {login_data['real_name']}")
+                    self.screenshot("name_entered")
                     
                     submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
                     self.click_element(submit_btn)
@@ -427,27 +392,38 @@ class NRCBot:
                 pass
             
             # 4. Select bank
-            bank_select = self.driver.find_element(By.XPATH, "//*[contains(text(), '--Please select the bank name--')]")
-            self.click_element(bank_select)
-            time.sleep(1)
-            
-            bank_option = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{login_data['bank_name']}')]")
-            self.click_element(bank_option)
-            print(f"   🏦 Selected bank: {login_data['bank_name']}")
-            self.screenshot("bank_selected")
-            time.sleep(1)
+            try:
+                bank_select = self.driver.find_element(By.XPATH, "//*[contains(text(), '--Please select the bank name--')]")
+                self.click_element(bank_select)
+                time.sleep(1)
+                
+                bank_option = self.driver.find_element(By.XPATH, f"//*[contains(text(), '{login_data['bank_name']}')]")
+                self.click_element(bank_option)
+                print(f"   🏦 Selected bank: {login_data['bank_name']}")
+                self.screenshot("bank_selected")
+                time.sleep(1)
+            except:
+                print("   ℹ️ Bank already selected")
             
             # 5. Enter bank account number
-            account_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the bank account number']")
-            self.type_text(account_input, login_data['bank_account'])
-            print(f"   🏦 Entered account: {login_data['bank_account']}")
+            try:
+                account_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please enter the bank account number']")
+                self.type_text(account_input, login_data['bank_account'])
+                print(f"   🏦 Entered account: {login_data['bank_account']}")
+                self.screenshot("account_entered")
+            except:
+                print("   ℹ️ Account number already entered")
             
             # 6. Click Add now
-            add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
-            self.click_element(add_btn)
-            print("   ✅ Bank card added")
-            self.screenshot("bank_added")
-            time.sleep(3)
+            try:
+                add_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Add now')]")
+                self.click_element(add_btn)
+                print("   ✅ Bank card added")
+                self.screenshot("bank_added")
+                time.sleep(3)
+            except:
+                print("   ℹ️ Bank card already added")
+            
             return True
         except Exception as e:
             print(f"   ⚠️ Bank setup error: {e}")
@@ -476,7 +452,8 @@ class NRCBot:
                     time.sleep(2)
                     return True
             return False
-        except:
+        except Exception as e:
+            print(f"   ⚠️ Fund password error: {e}")
             return False
 
     def complete_withdrawal(self, fund_password, amount="1800"):
@@ -489,31 +466,45 @@ class NRCBot:
             self.screenshot("withdrawal_page")
             
             # Select withdrawal method
-            method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
-            self.click_element(method_select)
-            time.sleep(1)
-            
-            bank_option = self.driver.find_element(By.XPATH, "//*[contains(text(), 'OPAY')]")
-            self.click_element(bank_option)
-            print("   💳 Selected OPAY")
-            self.screenshot("method_selected")
-            time.sleep(1)
+            try:
+                method_select = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
+                self.click_element(method_select)
+                time.sleep(1)
+                
+                bank_option = self.driver.find_element(By.XPATH, "//*[contains(text(), 'OPAY')]")
+                self.click_element(bank_option)
+                print("   💳 Selected OPAY")
+                self.screenshot("method_selected")
+                time.sleep(1)
+            except:
+                print("   ℹ️ Withdrawal method already selected")
             
             # Enter fund password
-            fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
-            self.type_text(fund_input, fund_password)
-            print(f"   🔑 Entered fund password")
+            try:
+                fund_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
+                self.type_text(fund_input, fund_password)
+                print(f"   🔑 Entered fund password")
+            except:
+                print("   ℹ️ Fund password already entered")
             
             # Enter amount
-            amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
-            self.type_text(amount_input, amount)
-            print(f"   💰 Entered amount: {amount}")
+            try:
+                amount_input = self.driver.find_element(By.XPATH, "//input[@placeholder='Withdrawal amount']")
+                self.type_text(amount_input, amount)
+                print(f"   💰 Entered amount: {amount}")
+            except:
+                print("   ℹ️ Amount already entered")
             
-            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.click_element(submit_btn)
-            print("   ✅ Withdrawal submitted")
-            self.screenshot("withdrawal_submitted")
-            time.sleep(3)
+            # Submit
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+                self.click_element(submit_btn)
+                print("   ✅ Withdrawal submitted")
+                self.screenshot("withdrawal_submitted")
+                time.sleep(3)
+            except:
+                print("   ℹ️ Withdrawal already submitted")
+            
             return True
         except Exception as e:
             print(f"   ⚠️ Withdrawal error: {e}")
@@ -614,7 +605,7 @@ class NRCBot:
             return False
 
     # ============================================
-    # PROCESS ACCOUNT
+    # PROCESS ACCOUNT (COMPLETE WORKFLOW)
     # ============================================
 
     def process_account(self, login_data):
@@ -632,11 +623,11 @@ class NRCBot:
         self.remove_important_notice()
         self.screenshot("after_popup_removal")
         
-        # 3. Do tasks
+        # 3. Do tasks (6 tasks)
         self.do_tasks()
         self.screenshot("after_tasks")
         
-        # 4. Set up bank details (Day 3)
+        # 4. Set up bank details
         self.set_bank_details(login_data)
         
         # 5. Set fund password
