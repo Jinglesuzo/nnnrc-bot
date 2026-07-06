@@ -44,6 +44,15 @@ class NRCBot:
         except:
             pass
 
+    def save_html(self, name):
+        try:
+            filename = f"bot{self.bot_id}_{name}.html"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(self.driver.page_source)
+            print(f"   💾 Saved HTML: {filename}")
+        except:
+            pass
+
     def load_logins(self):
         try:
             with open('logins.csv', 'r') as f:
@@ -335,6 +344,8 @@ class NRCBot:
         self.screenshot("01_bank_page")
         print("   ✅ Bank setup page loaded")
         
+        self.save_html("bank_page")
+        
         # Authenticate now if needed
         try:
             auth_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Authenticate now')]")
@@ -351,7 +362,9 @@ class NRCBot:
         name_selectors = [
             "//input[@placeholder='Please enter a real name']",
             "//input[contains(@placeholder, 'real name')]",
-            "//input[contains(@placeholder, 'name')]"
+            "//input[contains(@placeholder, 'name')]",
+            "//input[contains(@name, 'name')]",
+            "//input[contains(@id, 'name')]"
         ]
         
         for selector in name_selectors:
@@ -420,102 +433,121 @@ class NRCBot:
             return False
 
         # ============================================
-        # SELECT BANK - FIXED
+        # SELECT BANK - ROBUST METHOD
         # ============================================
         
         print("   🔘 Looking for bank selector...")
         bank_select_clicked = False
         
-        bank_selectors = [
-            "//*[contains(text(), 'Please select the bank name')]",
-            "//*[contains(text(), '--Please select the bank name--')]",
-            "//*[contains(@class, 'bank-select')]",
-            "//select",
-            "//div[contains(@class, 'dropdown')]"
-        ]
+        # Method 1: Try <select> dropdown
+        try:
+            select = self.driver.find_element(By.TAG_NAME, "select")
+            if select.is_displayed():
+                options = select.find_elements(By.TAG_NAME, "option")
+                for option in options:
+                    if 'OPAY' in option.text.upper():
+                        option.click()
+                        bank_select_clicked = True
+                        print(f"   ✅ Selected OPAY from dropdown")
+                        time.sleep(1)
+                        self.screenshot("06_opay_selected")
+                        break
+        except:
+            pass
         
-        for selector in bank_selectors:
-            try:
-                bank_select = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
-                if bank_select:
-                    self.click_element(bank_select)
-                    bank_select_clicked = True
-                    print(f"   ✅ Clicked bank selector")
-                    time.sleep(1)
-                    self.screenshot("06_bank_select_clicked")
-                    break
-            except:
-                continue
+        # Method 2: Try clicking dropdown and selecting OPAY
+        if not bank_select_clicked:
+            selectors = [
+                "//*[contains(text(), 'Please select the bank name')]",
+                "//*[contains(text(), '--Please select the bank name--')]",
+                "//*[contains(@class, 'bank-select')]",
+                "//*[contains(@class, 'select')]",
+                "//div[contains(@class, 'dropdown')]",
+                "//*[contains(@class, 'form-select')]",
+                "//select"
+            ]
+            
+            for selector in selectors:
+                try:
+                    element = WebDriverWait(self.driver, 3).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    if element:
+                        self.click_element(element)
+                        time.sleep(1)
+                        self.screenshot("06_bank_select_clicked")
+                        print(f"   ✅ Clicked bank selector")
+                        
+                        # Try to find OPAY in the dropdown
+                        opay_selectors = [
+                            "//*[contains(text(), 'OPAY')]",
+                            "//*[contains(text(), 'Opay')]",
+                            "//option[contains(text(), 'OPAY')]",
+                            "//li[contains(text(), 'OPAY')]",
+                            "//div[contains(text(), 'OPAY')]"
+                        ]
+                        
+                        for opay_sel in opay_selectors:
+                            try:
+                                opay = WebDriverWait(self.driver, 3).until(
+                                    EC.element_to_be_clickable((By.XPATH, opay_sel))
+                                )
+                                if opay:
+                                    self.click_element(opay)
+                                    bank_select_clicked = True
+                                    print(f"   ✅ Selected OPAY")
+                                    time.sleep(1)
+                                    self.screenshot("07_opay_selected")
+                                    break
+                            except:
+                                continue
+                        
+                        if bank_select_clicked:
+                            break
+                except:
+                    continue
         
         if not bank_select_clicked:
-            print("   ❌ Could not find bank selector")
-            self.screenshot("06_bank_select_not_found")
-            return False
-
-        # Select OPAY
-        print("   🔘 Looking for OPAY...")
-        opay_clicked = False
-        
-        opay_selectors = [
-            "//*[contains(text(), 'OPAY')]",
-            "//*[contains(text(), 'Opay')]",
-            "//option[contains(text(), 'OPAY')]",
-            "//li[contains(text(), 'OPAY')]"
-        ]
-        
-        for selector in opay_selectors:
+            # Method 3: Try JavaScript to set value
             try:
-                opay_option = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
-                if opay_option:
-                    self.click_element(opay_option)
-                    opay_clicked = True
-                    print(f"   ✅ Selected OPAY")
+                js_script = """
+                var selects = document.getElementsByTagName('select');
+                for (var i = 0; i < selects.length; i++) {
+                    var options = selects[i].options;
+                    for (var j = 0; j < options.length; j++) {
+                        if (options[j].text.toUpperCase().includes('OPAY')) {
+                            selects[i].value = options[j].value;
+                            selects[i].dispatchEvent(new Event('change'));
+                            return true;
+                        }
+                    }
+                }
+                return false;
+                """
+                result = self.driver.execute_script(js_script)
+                if result:
+                    bank_select_clicked = True
+                    print(f"   ✅ Selected OPAY via JavaScript")
                     time.sleep(1)
                     self.screenshot("07_opay_selected")
-                    break
             except:
-                continue
+                pass
         
-        if not opay_clicked:
-            print("   ❌ Could not find OPAY")
-            self.screenshot("07_opay_not_found")
+        if not bank_select_clicked:
+            print("   ❌ Could not select bank")
+            self.screenshot("07_bank_select_failed")
             return False
 
-        # Click Confirm button
-        print("   🔘 Looking for Confirm button...")
-        confirm_clicked = False
-        
+        # Click Confirm button if present
         try:
-            confirm_btn = WebDriverWait(self.driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Confirm')]"))
-            )
+            confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Confirm')]")
             if confirm_btn.is_displayed() and confirm_btn.is_enabled():
                 self.click_element(confirm_btn)
-                confirm_clicked = True
                 print("   ✅ Clicked Confirm")
                 time.sleep(1)
                 self.screenshot("08_confirm_clicked")
         except:
             pass
-        
-        if not confirm_clicked:
-            try:
-                confirm_btn = self.driver.find_element(By.XPATH, "//button[contains(@class, 'confirm')]")
-                if confirm_btn.is_displayed() and confirm_btn.is_enabled():
-                    self.click_element(confirm_btn)
-                    confirm_clicked = True
-                    print("   ✅ Clicked Confirm (by class)")
-                    time.sleep(1)
-                    self.screenshot("08_confirm_clicked")
-            except:
-                pass
-        
-        if not confirm_clicked:
-            print("   ⚠️ No Confirm button found (continuing)")
 
         # Enter bank account number
         print("   🔘 Looking for account number field...")
@@ -524,7 +556,9 @@ class NRCBot:
         account_selectors = [
             "//input[@placeholder='Please enter the bank account number']",
             "//input[contains(@placeholder, 'account number')]",
-            "//input[contains(@placeholder, 'account')]"
+            "//input[contains(@placeholder, 'account')]",
+            "//input[contains(@name, 'account')]",
+            "//input[contains(@id, 'account')]"
         ]
         
         for selector in account_selectors:
@@ -554,7 +588,9 @@ class NRCBot:
             "//button[contains(text(), 'Add now')]",
             "//button[contains(text(), 'Add')]",
             "//button[contains(@class, 'add')]",
-            "//button[@type='submit']"
+            "//button[@type='submit']",
+            "//button[contains(@class, 'btn-primary')]",
+            "//button[contains(@class, 'btn')]"
         ]
         
         for selector in add_selectors:
