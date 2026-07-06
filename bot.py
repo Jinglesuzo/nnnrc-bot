@@ -70,8 +70,7 @@ class NRCBot:
                             'fund_password': '3333'
                         })
             print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
-        except Exception as e:
-            print(f"❌ Bot {self.bot_id} Error loading logins.csv: {e}")
+        except:
             self.logins = [{'phone': '08057536473', 'password': 'people56', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
 
     def clear_field(self, element):
@@ -85,8 +84,7 @@ class NRCBot:
             self.driver.execute_script("arguments[0].value = '';", element)
             time.sleep(0.1)
             return True
-        except Exception as e:
-            print(f"   ⚠️ Clear error: {e}")
+        except:
             return False
 
     def type_text(self, element, text):
@@ -111,60 +109,17 @@ class NRCBot:
         except:
             return False
 
-    def scroll_up(self, amount=150):
-        try:
-            self.driver.execute_script(f"window.scrollBy(0, -{amount});")
-            time.sleep(0.3)
-            return True
-        except:
-            return False
-
-    def show_password(self):
-        try:
-            eye_selectors = [
-                "//*[contains(@class, 'eye')]",
-                "//*[contains(@class, 'show-password')]",
-                "//button[@type='button']",
-                "//*[contains(@class, 'fa-eye')]"
-            ]
-            for selector in eye_selectors:
-                try:
-                    eye_btn = self.driver.find_element(By.XPATH, selector)
-                    if eye_btn.is_displayed() and eye_btn.is_enabled():
-                        self.click_element(eye_btn)
-                        print("   👁️ Clicked show password")
-                        time.sleep(0.5)
-                        self.screenshot("password_shown")
-                        return True
-                except:
-                    pass
-            return False
-        except:
-            return False
-
     def find_login_button(self):
         print("   🔍 Looking for login button...")
         try:
-            btn = self.driver.find_element(By.XPATH, "//button[text()='Log in now']")
-            print("   ✅ Found 'Log in now'")
-            return btn
-        except:
-            pass
-        try:
             btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            print("   ✅ Found 'Log in now' (contains)")
+            print("   ✅ Found 'Log in now'")
             return btn
         except:
             pass
         try:
             btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
             print("   ✅ Found submit button")
-            return btn
-        except:
-            pass
-        try:
-            btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='login']")
-            print("   ✅ Found button by class")
             return btn
         except:
             pass
@@ -256,40 +211,6 @@ class NRCBot:
         except:
             return False
 
-    def find_all_read_buttons(self):
-        all_buttons = []
-        
-        selectors = [
-            "//button[contains(text(), 'read')]",
-            "//*[contains(text(), 'read')]",
-            "//button[contains(text(), 'Read')]",
-            "//button[contains(@class, 'read')]"
-        ]
-        
-        for scroll_attempt in range(5):
-            for selector in selectors:
-                try:
-                    buttons = self.driver.find_elements(By.XPATH, selector)
-                    for btn in buttons:
-                        if btn.is_displayed() and btn.is_enabled():
-                            if btn not in all_buttons:
-                                all_buttons.append(btn)
-                except:
-                    pass
-            
-            self.scroll_down(300)
-            time.sleep(0.5)
-        
-        self.scroll_up(500)
-        time.sleep(0.5)
-        
-        unique_buttons = []
-        for btn in all_buttons:
-            if btn not in unique_buttons:
-                unique_buttons.append(btn)
-        
-        return unique_buttons
-
     def do_tasks(self):
         print("   📋 Starting tasks...")
         
@@ -302,7 +223,7 @@ class NRCBot:
         
         while total_tasks < max_tasks:
             try:
-                read_btns = self.find_all_read_buttons()
+                read_btns = self.driver.find_elements(By.XPATH, "//button[contains(text(), 'read')] | //*[contains(text(), 'read')]")
                 visible_btns = [btn for btn in read_btns if btn.is_displayed() and btn.is_enabled()]
                 
                 if not visible_btns:
@@ -347,73 +268,45 @@ class NRCBot:
         return total_tasks
 
     # ============================================
-    # WITHDRAWAL - CLICK CONFIRM ONLY
+    # WITHDRAWAL - CLICK CONFIRM
     # ============================================
 
-    def click_confirm_only(self):
-        """Click the Confirm button - NO LOGOUT"""
+    def click_confirm(self):
         print("   🔘 Looking for Confirm button...")
         try:
-            confirm_selectors = [
-                "//button[contains(text(), 'Confirm')]",
-                "//button[text()='Confirm']",
-                "//*[contains(@class, 'confirm')]",
-                "//button[contains(@class, 'confirm')]"
-            ]
-            
-            for selector in confirm_selectors:
-                try:
-                    confirm_btn = WebDriverWait(self.driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    if confirm_btn.is_displayed() and confirm_btn.is_enabled():
-                        self.click_element(confirm_btn)
-                        print("   ✅ Clicked Confirm button")
-                        time.sleep(2)
-                        self.screenshot("confirm_clicked")
-                        return True
-                except:
-                    continue
-            
+            confirm_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Confirm')]"))
+            )
+            self.click_element(confirm_btn)
+            print("   ✅ Clicked Confirm")
+            time.sleep(2)
+            self.screenshot("confirm_clicked")
+            return True
+        except:
             print("   ❌ Could not find Confirm button")
             return False
-        except Exception as e:
-            print(f"   ❌ Error clicking Confirm: {e}")
-            return False
 
-    def complete_withdrawal(self, fund_password, amount="1800"):
-        """Go to withdrawal page and click Confirm ONLY"""
-        print(f"   💰 Processing withdrawal...")
-        
+    def complete_withdrawal(self):
+        print(f"   💰 Going to withdrawal page...")
         try:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(3)
             self.screenshot("withdrawal_page")
             print("   ✅ Withdrawal page loaded")
-        except Exception as e:
-            print(f"   ❌ Could not load withdrawal page: {e}")
+        except:
+            print("   ❌ Could not load withdrawal page")
             return False
         
-        if self.click_confirm_only():
-            print("   ✅ Confirm clicked! Taking screenshot...")
-            time.sleep(2)
-            self.screenshot("after_confirm_clicked")
-            print("   ✅ Screenshot saved: after_confirm_clicked.png")
-            return True
-        else:
-            print("   ❌ Could not click Confirm")
-            self.screenshot("confirm_not_found")
-            return False
+        return self.click_confirm()
 
     # ============================================
-    # FUND PASSWORD + SIGN OUT (CORRECT URL)
+    # FUND PASSWORD + SIGN OUT (SUBMIT FIXED)
     # ============================================
 
     def set_fund_password_and_signout(self, fund_password):
-        """Go to /user/info, click Fund password, enter 3333, Submit, then Sign out"""
+        """Go to /user/info, click Fund password, enter 3333, click Submit, then Sign out"""
         
-        # 1. Go to the correct user info page
-        print("   🔑 Navigating to user info page...")
+        print("   🔑 Going to user info page...")
         try:
             self.driver.get("https://nnnrc.com/#/user/info")
             time.sleep(3)
@@ -423,8 +316,7 @@ class NRCBot:
             print(f"   ❌ Could not load user info page: {e}")
             return False
 
-        # 2. Click "Fund password"
-        print("   🔑 Looking for Fund password...")
+        # 1. Click Fund password
         try:
             fund_pw_btn = WebDriverWait(self.driver, 10).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Fund password')]"))
@@ -437,75 +329,82 @@ class NRCBot:
             print(f"   ❌ Could not find Fund password: {e}")
             return False
 
-        # 3. Enter new fund password
+        # 2. Enter new fund password
         try:
-            new_password_field = WebDriverWait(self.driver, 10).until(
+            new_pw = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please enter the new funds password']"))
             )
-            self.type_text(new_password_field, fund_password)
+            self.type_text(new_pw, fund_password)
             self.screenshot("03_new_password_entered")
             print(f"   ✅ Entered new fund password: {fund_password}")
         except Exception as e:
             print(f"   ❌ Could not find new password field: {e}")
             return False
 
-        # 4. Confirm fund password
+        # 3. Confirm fund password
         try:
-            confirm_password_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
-            self.type_text(confirm_password_field, fund_password)
+            confirm_pw = self.driver.find_element(By.XPATH, "//input[@placeholder='Please confirm the fund password']")
+            self.type_text(confirm_pw, fund_password)
             self.screenshot("04_confirm_password_entered")
             print(f"   ✅ Confirmed fund password: {fund_password}")
         except Exception as e:
             print(f"   ❌ Could not find confirm password field: {e}")
             return False
 
-        # 5. Click Submit
+        # 4. Click Submit - GREEN BUTTON (FIXED)
+        print("   🔘 Looking for Submit button...")
         try:
-            submit_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Submit')]"))
-            )
-            self.click_element(submit_btn)
-            time.sleep(2)
-            self.screenshot("05_submit_clicked")
-            print("   ✅ Submitted fund password")
-        except Exception as e:
-            print(f"   ❌ Could not click Submit: {e}")
-            return False
-
-        # 6. Click Sign out
-        print("   🔍 Looking for Sign out...")
-        try:
-            signout_selectors = [
-                "//*[contains(text(), 'Sign out')]",
-                "//*[contains(text(), 'Logout')]",
-                "//button[contains(text(), 'Sign out')]",
-                "//a[contains(text(), 'Sign out')]",
-                "//*[contains(@class, 'signout')]",
-                "//*[contains(@class, 'logout')]"
+            # Multiple ways to find the Submit button
+            submit_selectors = [
+                "//button[contains(text(), 'Submit')]",
+                "//button[text()='Submit']",
+                "//*[contains(@class, 'submit')]",
+                "//button[contains(@class, 'submit')]",
+                "//button[@type='submit']",
+                "//button[contains(@class, 'green')]",
+                "//input[@type='submit']"
             ]
             
-            signout_btn = None
-            for selector in signout_selectors:
+            submit_btn = None
+            for selector in submit_selectors:
                 try:
-                    signout_btn = self.driver.find_element(By.XPATH, selector)
-                    if signout_btn.is_displayed() and signout_btn.is_enabled():
-                        print(f"   ✅ Found Sign out: {selector}")
+                    submit_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    if submit_btn.is_displayed():
+                        print(f"   ✅ Found Submit button: {selector}")
                         break
                 except:
                     continue
             
-            if signout_btn:
-                self.click_element(signout_btn)
+            if submit_btn:
+                # Scroll to button and click with JavaScript
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
+                time.sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", submit_btn)
+                print("   ✅ Clicked Submit button")
                 time.sleep(2)
-                self.screenshot("06_signed_out")
-                print("   ✅ Signed out successfully")
-                return True
+                self.screenshot("05_submit_clicked")
             else:
-                print("   ❌ Sign out not found")
-                self.screenshot("06_signout_not_found")
+                print("   ❌ Could not find Submit button")
+                self.screenshot("05_submit_not_found")
                 return False
         except Exception as e:
-            print(f"   ❌ Error clicking Sign out: {e}")
+            print(f"   ❌ Error clicking Submit: {e}")
+            return False
+
+        # 5. Click Sign out
+        try:
+            signout_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Sign out')]"))
+            )
+            self.click_element(signout_btn)
+            time.sleep(2)
+            self.screenshot("06_signed_out")
+            print("   ✅ Signed out")
+            return True
+        except Exception as e:
+            print(f"   ❌ Could not sign out: {e}")
             return False
 
     # ============================================
@@ -513,8 +412,7 @@ class NRCBot:
     # ============================================
 
     def login(self, phone, password):
-        print(f"\n🔑 Bot {self.bot_id} Logging in: {phone}")
-        
+        print(f"\n🔑 Logging in: {phone}")
         try:
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(2)
@@ -534,71 +432,28 @@ class NRCBot:
             print(f"   ✅ Password entered")
             self.screenshot("03_password_entered")
             
-            self.show_password()
-            self.screenshot("04_password_visible")
-            
             login_btn = self.find_login_button()
             if login_btn:
                 self.click_element(login_btn)
                 print(f"   ✅ Clicked login")
-                self.screenshot("05_after_login_click")
+                self.screenshot("04_after_login_click")
             else:
                 print(f"   ❌ Login button not found")
-                self.screenshot("05_login_button_not_found")
                 return False
             
-            print("   ⏳ Waiting 10 seconds for login to process...")
-            time.sleep(10)
-            self.screenshot("06_after_login_wait")
+            time.sleep(8)
+            self.screenshot("05_after_login_wait")
             
-            current_url = self.driver.current_url
             page_source = self.driver.page_source.lower()
-            
-            print(f"   📍 Current URL: {current_url}")
-            
-            if "/logout" in current_url:
-                print(f"   ❌ Redirected to logout - login failed")
-                self.screenshot("07_login_failed_redirect")
-                return False
-            
-            success_indicators = [
-                "important notice",
-                "cooperative wealth zone",
-                "dashboard",
-                "welcome to join nrc",
-                "invite newcomers",
-                "wealth center",
-                "wish book",
-                "surprise code",
-                "deposit principal",
-                "welcome"
-            ]
-            
-            for indicator in success_indicators:
-                if indicator in page_source:
-                    print(f"   ✅✅✅ LOGIN SUCCESS! Found: '{indicator}'")
-                    self.screenshot("07_login_success")
-                    self.logged_in_accounts.append(phone)
-                    return True
-            
-            if "dashboard" in current_url or "home" in current_url or "user" in current_url:
-                print(f"   ✅✅✅ LOGIN SUCCESS! URL: {current_url}")
-                self.screenshot("07_login_success")
+            if "important notice" in page_source or "cooperative wealth zone" in page_source:
+                print(f"   ✅ Login success!")
                 self.logged_in_accounts.append(phone)
                 return True
-            
-            if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
-                print(f"   ❌ Invalid credentials")
-                self.screenshot("07_login_failed")
+            else:
+                print(f"   ❌ Login failed")
                 return False
-            
-            print(f"   ❌ Login failed - unknown reason")
-            self.screenshot("07_login_failed")
-            return False
-            
         except Exception as e:
             print(f"   ❌ Error: {e}")
-            self.screenshot("error")
             return False
 
     # ============================================
@@ -610,25 +465,19 @@ class NRCBot:
         password = login_data['password']
         fund_password = login_data['fund_password']
         
-        print(f"\n📱 Bot {self.bot_id} Account: {phone}")
+        print(f"\n📱 Account: {phone}")
         
-        # 1. Login
         if not self.login(phone, password):
-            print(f"   ❌ Login failed for {phone}")
             return False
         
-        # 2. Remove Important Notice
         self.remove_important_notice()
         self.screenshot("after_popup_removal")
         
-        # 3. Do tasks (6 tasks)
         self.do_tasks()
         self.screenshot("after_tasks")
         
-        # 4. Go to withdrawal and click Confirm
-        self.complete_withdrawal(fund_password, "1800")
+        self.complete_withdrawal()
         
-        # 5. Go to /user/info, set fund password, and sign out
         self.set_fund_password_and_signout(fund_password)
         
         return True
@@ -643,12 +492,10 @@ class NRCBot:
                 print(f"   ✅ SUCCESS for {login_data['phone']}")
             else:
                 print(f"   ❌ FAILED for {login_data['phone']}")
-            
             time.sleep(3)
 
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
-        print(f"📊 Successful accounts: {len(self.logged_in_accounts)}")
 
 if __name__ == "__main__":
     bot_id = int(os.environ.get('BOT_ID', 1))
