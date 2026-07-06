@@ -300,7 +300,77 @@ class NRCBot:
         return self.click_confirm()
 
     # ============================================
-    # FUND PASSWORD + SIGN OUT (SUBMIT FIXED)
+    # ADD BANK ACCOUNT
+    # ============================================
+
+    def add_bank_account(self, login_data):
+        """Go to /user/info, click Add a bank account, click green button, screenshot"""
+        
+        print("   🏦 Going to user info page to add bank...")
+        try:
+            self.driver.get("https://nnnrc.com/#/user/info")
+            time.sleep(3)
+            self.screenshot("01_user_info_for_bank")
+            print("   ✅ User info page loaded")
+        except Exception as e:
+            print(f"   ❌ Could not load user info page: {e}")
+            return False
+
+        # 1. Click "Add a bank account"
+        try:
+            add_bank_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Add a bank account')]"))
+            )
+            self.click_element(add_bank_btn)
+            time.sleep(2)
+            self.screenshot("02_add_bank_clicked")
+            print("   ✅ Clicked 'Add a bank account'")
+        except Exception as e:
+            print(f"   ❌ Could not find 'Add a bank account': {e}")
+            return False
+
+        # 2. Click the green button (Submit/Confirm/Next)
+        print("   🔘 Looking for green button...")
+        try:
+            green_btn = None
+            green_selectors = [
+                "//button[contains(text(), 'Add now')]",
+                "//button[contains(text(), 'Submit')]",
+                "//button[contains(text(), 'Confirm')]",
+                "//button[contains(text(), 'Next')]",
+                "//button[contains(@class, 'green')]",
+                "//button[@type='submit']",
+                "//button[contains(@class, 'btn-primary')]",
+                "//button[contains(@class, 'primary')]"
+            ]
+            
+            for selector in green_selectors:
+                try:
+                    green_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.XPATH, selector))
+                    )
+                    if green_btn.is_displayed():
+                        print(f"   ✅ Found green button: {selector}")
+                        break
+                except:
+                    continue
+            
+            if green_btn:
+                self.click_element(green_btn)
+                time.sleep(2)
+                self.screenshot("03_green_button_clicked")
+                print("   ✅ Clicked green button")
+                return True
+            else:
+                print("   ❌ Could not find green button")
+                self.screenshot("03_green_button_not_found")
+                return False
+        except Exception as e:
+            print(f"   ❌ Error clicking green button: {e}")
+            return False
+
+    # ============================================
+    # FUND PASSWORD + SIGN OUT
     # ============================================
 
     def set_fund_password_and_signout(self, fund_password):
@@ -351,11 +421,10 @@ class NRCBot:
             print(f"   ❌ Could not find confirm password field: {e}")
             return False
 
-        # 4. Click Submit - GREEN BUTTON (FIXED)
+        # 4. Click Submit
         print("   🔘 Looking for Submit button...")
         submit_clicked = False
         
-        # Method 1: By exact text "Submit"
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[text()='Submit']")
             self.click_element(submit_btn)
@@ -364,7 +433,6 @@ class NRCBot:
         except:
             pass
         
-        # Method 2: By contains text
         if not submit_clicked:
             try:
                 submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
@@ -374,38 +442,12 @@ class NRCBot:
             except:
                 pass
         
-        # Method 3: By type submit
         if not submit_clicked:
             try:
                 submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
                 self.click_element(submit_btn)
                 print("   ✅ Clicked Submit (by type)")
                 submit_clicked = True
-            except:
-                pass
-        
-        # Method 4: By CSS class
-        if not submit_clicked:
-            try:
-                submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button[class*='green'], button[class*='submit']")
-                self.click_element(submit_btn)
-                print("   ✅ Clicked Submit (by class)")
-                submit_clicked = True
-            except:
-                pass
-        
-        # Method 5: Find any visible button with Submit text
-        if not submit_clicked:
-            try:
-                buttons = self.driver.find_elements(By.TAG_NAME, "button")
-                for btn in buttons:
-                    if btn.is_displayed() and btn.is_enabled():
-                        text = btn.text.lower()
-                        if 'submit' in text:
-                            self.click_element(btn)
-                            print(f"   ✅ Clicked Submit (found by scanning): '{btn.text}'")
-                            submit_clicked = True
-                            break
             except:
                 pass
         
@@ -503,6 +545,9 @@ class NRCBot:
         self.complete_withdrawal()
         
         self.set_fund_password_and_signout(fund_password)
+        
+        # Add bank account after fund password is set
+        self.add_bank_account(login_data)
         
         return True
 
