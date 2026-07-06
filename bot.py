@@ -354,7 +354,6 @@ class NRCBot:
         """Click the Confirm button - NO LOGOUT"""
         print("   🔘 Looking for Confirm button...")
         try:
-            # Try multiple ways to find Confirm button
             confirm_selectors = [
                 "//button[contains(text(), 'Confirm')]",
                 "//button[text()='Confirm']",
@@ -386,7 +385,6 @@ class NRCBot:
         """Go to withdrawal page and click Confirm ONLY"""
         print(f"   💰 Processing withdrawal...")
         
-        # Go to withdrawal page
         try:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(3)
@@ -396,7 +394,6 @@ class NRCBot:
             print(f"   ❌ Could not load withdrawal page: {e}")
             return False
         
-        # ONLY CLICK CONFIRM - NO LOGOUT
         if self.click_confirm_only():
             print("   ✅ Confirm clicked! Taking screenshot...")
             time.sleep(2)
@@ -406,6 +403,94 @@ class NRCBot:
         else:
             print("   ❌ Could not click Confirm")
             self.screenshot("confirm_not_found")
+            return False
+
+    # ============================================
+    # LOGOUT FROM SETTINGS
+    # ============================================
+
+    def logout_from_settings(self):
+        """Navigate to user profile, click settings, then logout"""
+        print("   🔄 Navigating to user profile...")
+        try:
+            self.driver.get("https://nnnrc.com/#/user")
+            time.sleep(3)
+            self.screenshot("01_user_profile")
+            print("   ✅ User profile page loaded")
+        except Exception as e:
+            print(f"   ❌ Could not load user profile: {e}")
+            return False
+
+        try:
+            print("   ⚙️ Looking for settings icon...")
+            settings_selectors = [
+                "//*[contains(@class, 'settings')]",
+                "//*[contains(@class, 'gear')]",
+                "//*[contains(@class, 'icon-settings')]",
+                "//i[contains(@class, 'fa-cog')]",
+                "//*[contains(@class, 'fa-gear')]",
+                "//button[contains(@class, 'settings')]",
+                "//a[contains(@href, 'settings')]",
+                "//*[contains(text(), 'Settings')]",
+                "//*[contains(@class, 'setting')]"
+            ]
+            
+            settings_btn = None
+            for selector in settings_selectors:
+                try:
+                    settings_btn = self.driver.find_element(By.XPATH, selector)
+                    if settings_btn.is_displayed() and settings_btn.is_enabled():
+                        print(f"   ✅ Found settings icon: {selector}")
+                        break
+                except:
+                    continue
+            
+            if settings_btn:
+                self.click_element(settings_btn)
+                time.sleep(2)
+                self.screenshot("02_settings_clicked")
+                print("   ✅ Clicked settings icon")
+            else:
+                print("   ❌ Settings icon not found")
+                self.screenshot("02_settings_not_found")
+                return False
+        except Exception as e:
+            print(f"   ❌ Error clicking settings: {e}")
+            return False
+
+        try:
+            print("   🔍 Looking for Logout button...")
+            logout_selectors = [
+                "//*[contains(text(), 'Logout')]",
+                "//*[contains(text(), 'Sign out')]",
+                "//button[contains(text(), 'Logout')]",
+                "//a[contains(text(), 'Logout')]",
+                "//*[contains(@class, 'logout')]",
+                "//*[contains(@id, 'logout')]"
+            ]
+            
+            logout_btn = None
+            for selector in logout_selectors:
+                try:
+                    logout_btn = self.driver.find_element(By.XPATH, selector)
+                    if logout_btn.is_displayed() and logout_btn.is_enabled():
+                        print(f"   ✅ Found Logout button: {selector}")
+                        break
+                except:
+                    continue
+            
+            if logout_btn:
+                self.click_element(logout_btn)
+                time.sleep(2)
+                self.screenshot("03_logout_clicked")
+                print("   ✅ Logged out successfully")
+                return True
+            else:
+                print("   ❌ Logout button not found")
+                self.screenshot("03_logout_not_found")
+                return False
+        except Exception as e:
+            print(f"   ❌ Error clicking logout: {e}")
             return False
 
     # ============================================
@@ -511,39 +596,21 @@ class NRCBot:
         
         print(f"\n📱 Bot {self.bot_id} Account: {phone}")
         
-        # 1. Login
         if not self.login(phone, password):
             print(f"   ❌ Login failed for {phone}")
             return False
         
-        # 2. Remove Important Notice
         self.remove_important_notice()
         self.screenshot("after_popup_removal")
         
-        # 3. Do tasks (6 tasks)
         self.do_tasks()
         self.screenshot("after_tasks")
         
-        # 4. Go to withdrawal and click Confirm ONLY
         self.complete_withdrawal(login_data['fund_password'], "1800")
         
-        print("   ✅ Account processing complete! (No logout)")
+        self.logout_from_settings()
+        
         return True
-
-    def logout_all(self):
-        """Only logout when called explicitly"""
-        try:
-            self.driver.get("https://nnnrc.com/#/logout")
-            time.sleep(2)
-            print(f"   ✅ Logged out all accounts")
-            self.screenshot("08_logged_out")
-            return True
-        except:
-            return False
-
-    # ============================================
-    # RUN
-    # ============================================
 
     def run(self):
         print("="*50)
@@ -557,12 +624,6 @@ class NRCBot:
                 print(f"   ❌ FAILED for {login_data['phone']}")
             
             time.sleep(3)
-
-        # Only logout at the very end
-        if self.logged_in_accounts:
-            self.logout_all()
-        else:
-            print("   ⚠️ No accounts were processed successfully")
 
         self.driver.quit()
         print(f"\n✅ Bot {self.bot_id} Done!")
