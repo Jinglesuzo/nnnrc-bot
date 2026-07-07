@@ -4,7 +4,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import csv
@@ -19,8 +18,6 @@ import re
 # ============================================
 
 class WithdrawalSafetyManager:
-    """Manages withdrawal safety limits and tracking"""
-    
     def __init__(self, config_file="withdrawal_config.json"):
         self.config = self.load_config(config_file)
         self.daily_withdrawn = 0
@@ -36,7 +33,7 @@ class WithdrawalSafetyManager:
             "max_single_withdrawal": 3000.0,
             "min_balance_threshold": 100.0,
             "withdrawal_cooldown_seconds": 60,
-            "require_confirmation": False,  # Changed to False for headless
+            "require_confirmation": False,
             "enable_safety_limits": True
         }
         
@@ -144,7 +141,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# ENHANCED WITHDRAWAL BOT
+# ENHANCED WITHDRAWAL BOT WITH CUSTOM UI SUPPORT
 # ============================================
 
 class WithdrawalBot:
@@ -164,7 +161,6 @@ class WithdrawalBot:
         
         if self.is_headless:
             print("🤖 Running in headless/CI mode - auto-confirming withdrawals")
-            # Override config for headless
             self.safety.config["require_confirmation"] = False
         
         # Withdrawal amounts from screenshot
@@ -177,6 +173,8 @@ class WithdrawalBot:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
+        # Uncomment for debugging
+        # options.add_argument("--headless=false")
 
         print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
@@ -199,7 +197,6 @@ class WithdrawalBot:
             pass
 
     def save_html(self, name):
-        """Save HTML for debugging"""
         try:
             filename = f"bot{self.bot_id}_{name}.html"
             with open(filename, "w", encoding="utf-8") as f:
@@ -209,33 +206,48 @@ class WithdrawalBot:
             pass
 
     def click_element(self, element):
-        """Click element using multiple methods"""
+        """Click element using multiple methods for custom UI"""
         try:
+            # Method 1: Scroll and JavaScript click
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
-            time.sleep(0.5)
+            time.sleep(0.3)
             self.driver.execute_script("arguments[0].click();", element)
             return True
         except:
             try:
+                # Method 2: Action chains
                 actions = ActionChains(self.driver)
                 actions.move_to_element(element).click().perform()
                 return True
             except:
                 try:
+                    # Method 3: Regular click
                     element.click()
                     return True
                 except:
-                    return False
+                    try:
+                        # Method 4: Click via JavaScript without scrolling
+                        self.driver.execute_script("arguments[0].click();", element)
+                        return True
+                    except:
+                        return False
 
     def type_text(self, element, text):
-        """Type text with proper clearing"""
+        """Type text with proper clearing for custom UI"""
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
             time.sleep(0.3)
-            element.click()
-            time.sleep(0.2)
-            element.clear()
-            time.sleep(0.2)
+            
+            # Try multiple ways to clear and type
+            try:
+                element.click()
+                time.sleep(0.2)
+                element.clear()
+                time.sleep(0.2)
+            except:
+                self.driver.execute_script("arguments[0].value = '';", element)
+            
+            # Type character by character
             for char in text:
                 element.send_keys(char)
                 time.sleep(0.05)
@@ -243,6 +255,7 @@ class WithdrawalBot:
             return True
         except:
             try:
+                # JavaScript fallback
                 self.driver.execute_script(f"arguments[0].value = '{text}';", element)
                 return True
             except:
@@ -279,22 +292,24 @@ class WithdrawalBot:
             self.logins = [{'phone': '08057536473', 'password': 'people56', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
 
     def find_login_button(self):
-        """Find login button with multiple methods"""
+        """Find login button with multiple methods for custom UI"""
         print("   🔍 Looking for login button...")
         
         time.sleep(1)
-        self.save_html("login_page_debug")
         
         # Try different button texts
         login_texts = [
             "Log in now", "Log in", "Login", "Sign in", 
             "Sign In", "log in", "login", "Sign in now",
-            "Log In", "LOGIN", "SIGN IN"
+            "Log In", "LOGIN", "SIGN IN", "Log in",
+            "Log In Now", "LOG IN NOW"
         ]
         
+        # Try exact text matches
         for text in login_texts:
             try:
-                btn = self.driver.find_element(By.XPATH, f"//button[text()='{text}']")
+                # Find by button tag
+                btn = self.driver.find_element(By.XPATH, f"//button[normalize-space(text())='{text}']")
                 if btn.is_displayed() and btn.is_enabled():
                     print(f"   ✅ Found login button with text: '{text}'")
                     return btn
@@ -302,72 +317,51 @@ class WithdrawalBot:
                 pass
             
             try:
-                btn = self.driver.find_element(By.XPATH, f"//button[contains(text(), '{text}')]")
+                # Find by any element with text
+                btn = self.driver.find_element(By.XPATH, f"//*[normalize-space(text())='{text}' and (self::button or self::a or self::div[@role='button'])]")
                 if btn.is_displayed() and btn.is_enabled():
-                    print(f"   ✅ Found login button with text containing: '{text}'")
+                    print(f"   ✅ Found login button with text: '{text}'")
                     return btn
             except:
                 pass
         
-        # Try by class
+        # Try contains text
+        for text in login_texts:
+            try:
+                elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{text}')]")
+                for elem in elements:
+                    if elem.is_displayed() and elem.is_enabled():
+                        # Check if it's clickable
+                        tag = elem.tag_name.lower()
+                        if tag in ['button', 'a'] or elem.get_attribute('role') == 'button':
+                            print(f"   ✅ Found login button containing: '{text}'")
+                            return elem
+            except:
+                pass
+        
+        # Try by class names
         class_selectors = [
             "//button[contains(@class, 'login')]",
             "//button[contains(@class, 'btn-login')]",
             "//button[contains(@class, 'submit')]",
             "//button[contains(@class, 'primary')]",
             "//button[@type='submit']",
-            "//a[contains(@class, 'login')]//button"
+            "//a[contains(@class, 'login')]",
+            "//div[contains(@class, 'login-btn')]",
+            "//*[contains(@class, 'login-button')]"
         ]
         
         for selector in class_selectors:
             try:
-                buttons = self.driver.find_elements(By.XPATH, selector)
-                for btn in buttons:
-                    if btn.is_displayed() and btn.is_enabled():
-                        text = btn.text.strip()
-                        print(f"   ✅ Found button with class: '{text}'")
-                        return btn
+                elements = self.driver.find_elements(By.XPATH, selector)
+                for elem in elements:
+                    if elem.is_displayed() and elem.is_enabled():
+                        print(f"   ✅ Found login button by class")
+                        return elem
             except:
                 pass
         
-        # Try to find any visible button
-        try:
-            all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            print(f"   🔍 Found {len(all_buttons)} total buttons")
-            
-            for btn in all_buttons:
-                text = btn.text.strip()
-                if btn.is_displayed() and btn.is_enabled():
-                    if any(keyword in text.lower() for keyword in ['log', 'in', 'sign', 'login', 'submit']):
-                        print(f"   ✅ Found potential login button: '{text}'")
-                        return btn
-        except:
-            pass
-        
-        # JavaScript fallback
-        try:
-            js_script = """
-            var buttons = document.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                var text = buttons[i].textContent.toLowerCase();
-                if (text.includes('log') || text.includes('in') || text.includes('sign') || text.includes('submit')) {
-                    if (buttons[i].offsetParent !== null) {
-                        return buttons[i];
-                    }
-                }
-            }
-            return null;
-            """
-            element = self.driver.execute_script(js_script)
-            if element:
-                print(f"   ✅ Found login button via JavaScript")
-                return element
-        except:
-            pass
-        
         print("   ❌ No login button found")
-        print(f"   📄 Page title: {self.driver.title}")
-        print(f"   🌐 URL: {self.driver.current_url}")
         return None
 
     def login(self, phone, password):
@@ -376,25 +370,27 @@ class WithdrawalBot:
             self.driver.get("https://nnnrc.com/#/login")
             time.sleep(3)
             self.screenshot("01_login_page")
-            self.save_html("login_page")
             
             # Wait for page to load
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            # Find phone field
+            # Find phone field - try multiple selectors
             phone_field = None
             phone_selectors = [
                 "//input[@placeholder='Please enter your phone number']",
                 "//input[@type='text' and contains(@placeholder, 'phone')]",
+                "//input[@type='tel']",
                 "//input[contains(@class, 'phone')]",
-                "//input[contains(@name, 'phone')]"
+                "//input[contains(@name, 'phone')]",
+                "//input[@id='phone']",
+                "//input[contains(@placeholder, 'Phone')]"
             ]
             
             for selector in phone_selectors:
                 try:
-                    phone_field = WebDriverWait(self.driver, 5).until(
+                    phone_field = WebDriverWait(self.driver, 3).until(
                         EC.presence_of_element_located((By.XPATH, selector))
                     )
                     if phone_field:
@@ -405,7 +401,6 @@ class WithdrawalBot:
             
             if not phone_field:
                 print("   ❌ Could not find phone field")
-                self.save_html("phone_field_not_found")
                 return False
             
             phone_field.clear()
@@ -419,12 +414,13 @@ class WithdrawalBot:
                 "//input[@placeholder='Please enter login password']",
                 "//input[@type='password']",
                 "//input[contains(@class, 'password')]",
-                "//input[contains(@name, 'password')]"
+                "//input[contains(@name, 'password')]",
+                "//input[@id='password']"
             ]
             
             for selector in password_selectors:
                 try:
-                    password_field = WebDriverWait(self.driver, 5).until(
+                    password_field = WebDriverWait(self.driver, 3).until(
                         EC.presence_of_element_located((By.XPATH, selector))
                     )
                     if password_field:
@@ -435,7 +431,6 @@ class WithdrawalBot:
             
             if not password_field:
                 print("   ❌ Could not find password field")
-                self.save_html("password_field_not_found")
                 return False
             
             password_field.clear()
@@ -463,156 +458,232 @@ class WithdrawalBot:
                 self.logged_in_accounts.append(phone)
                 return True
             else:
-                # Check for error
-                error_patterns = ["invalid", "error", "failed", "incorrect", "wrong"]
-                for pattern in error_patterns:
-                    if pattern in page_source:
-                        print(f"   ❌ Login failed: {pattern} error")
-                        return False
-                
-                print("   ❌ Login failed - unknown reason")
+                print("   ❌ Login failed")
                 return False
                 
         except Exception as e:
             print(f"   ❌ Login error: {e}")
-            self.save_html("login_error")
             return False
 
-    def select_withdrawal_method(self, bank_name="OPAY"):
-        """Select withdrawal method and choose OPAY"""
-        print(f"\n   🔘 STEP 1: Selecting withdrawal method...")
+    # ============================================
+    # CUSTOM UI INTERACTIONS
+    # ============================================
+
+    def click_withdrawal_method_dropdown(self):
+        """Click the withdrawal method dropdown using custom UI detection"""
+        print("   🔍 Finding withdrawal method dropdown...")
         
-        time.sleep(2)
+        # Save page for debugging
+        self.save_html("withdrawal_page")
         
-        # Try to find and click withdrawal method field
-        method_found = False
-        
-        # Look for "Withdrawal method" text
+        # Method 1: Find by the "Withdrawal method" label and click next sibling/container
         try:
-            method_label = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Withdrawal method')]")
-            print(f"   ✅ Found 'Withdrawal method' label")
+            label = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Withdrawal method')]")
+            print("   ✅ Found 'Withdrawal method' label")
             
-            # Try clicking the parent or nearby element
-            parent = method_label.find_element(By.XPATH, "..")
-            clickable = parent.find_elements(By.XPATH, ".//div[contains(@class, 'select')]")
-            if clickable:
-                self.click_element(clickable[0])
-                method_found = True
-                time.sleep(1.5)
+            # Try to find clickable element after the label
+            parent = label.find_element(By.XPATH, "./ancestor::div[contains(@class, 'form') or contains(@class, 'item') or contains(@class, 'group')]")
+            if parent:
+                # Find clickable elements in parent
+                clickable = parent.find_elements(By.XPATH, ".//div[contains(@class, 'select') or contains(@class, 'dropdown') or contains(@class, 'picker')]")
+                if clickable:
+                    self.click_element(clickable[0])
+                    print("   ✅ Clicked dropdown via parent container")
+                    time.sleep(1)
+                    return True
+                
+                # Try clicking any div with text "Select withdrawal method"
+                clickable = parent.find_elements(By.XPATH, ".//*[contains(text(), 'Select withdrawal method')]")
+                if clickable:
+                    self.click_element(clickable[0])
+                    print("   ✅ Clicked 'Select withdrawal method' text")
+                    time.sleep(1)
+                    return True
         except:
             pass
         
-        # Look for "Select withdrawal method" text
-        if not method_found:
-            try:
-                element = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
-                self.click_element(element)
-                method_found = True
-                time.sleep(1.5)
-            except:
-                pass
+        # Method 2: Find by text "Select withdrawal method" directly
+        try:
+            elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
+            for elem in elements:
+                if elem.is_displayed():
+                    self.click_element(elem)
+                    print("   ✅ Clicked 'Select withdrawal method' directly")
+                    time.sleep(1)
+                    return True
+        except:
+            pass
         
-        # Try by class
-        if not method_found:
-            selectors = [
-                "//div[contains(@class, 'withdrawal-method')]",
-                "//div[contains(@class, 'dropdown')]",
-                "//div[contains(@class, 'select')]"
-            ]
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for elem in elements:
-                        if elem.is_displayed():
-                            self.click_element(elem)
-                            method_found = True
-                            time.sleep(1.5)
-                            break
-                    if method_found:
-                        break
-                except:
-                    continue
-        
-        if not method_found:
-            print("   ❌ Could not find withdrawal method field")
-            return False
-        
-        self.screenshot("after_method_click")
-        
-        # Select OPAY
-        print(f"   🔘 Looking for {bank_name}...")
-        time.sleep(1)
-        
-        opay_found = False
-        opay_selectors = [
-            f"//*[contains(text(), '{bank_name}')]",
-            f"//*[contains(text(), '{bank_name.upper()}')]",
-            "//li[contains(text(), 'OPAY')]",
-            "//div[contains(text(), 'OPAY')]",
-            "//span[contains(text(), 'OPAY')]"
+        # Method 3: Find by common custom UI classes
+        class_selectors = [
+            "//div[contains(@class, 'ant-select-selector')]",
+            "//div[contains(@class, 'select-container')]",
+            "//div[contains(@class, 'dropdown-container')]",
+            "//div[contains(@class, 'picker')]",
+            "//div[contains(@role, 'combobox')]",
+            "//div[contains(@class, 'custom-select')]",
+            "//div[contains(@class, 'form-control')]"
         ]
         
-        for selector in opay_selectors:
+        for selector in class_selectors:
             try:
-                opay_element = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
-                if opay_element.is_displayed():
-                    self.click_element(opay_element)
-                    opay_found = True
-                    print(f"   ✅ Selected {bank_name}")
-                    self.screenshot("opay_selected")
-                    time.sleep(1)
-                    break
+                elements = self.driver.find_elements(By.XPATH, selector)
+                for elem in elements:
+                    if elem.is_displayed():
+                        # Check if it's near "Withdrawal method" text
+                        parent_text = elem.find_element(By.XPATH, "./ancestor::div").text
+                        if "Withdrawal method" in parent_text:
+                            self.click_element(elem)
+                            print(f"   ✅ Clicked dropdown by class: {selector}")
+                            time.sleep(1)
+                            return True
             except:
                 continue
         
-        if not opay_found:
-            print(f"   ❌ Could not find {bank_name}")
-            return False
+        # Method 4: JavaScript to find and click any visible dropdown
+        try:
+            js_script = """
+            var elements = document.querySelectorAll('div, input');
+            for (var i = 0; i < elements.length; i++) {
+                var text = elements[i].textContent || '';
+                var placeholder = elements[i].getAttribute('placeholder') || '';
+                
+                if (text.includes('Select withdrawal method') || 
+                    placeholder.includes('Select withdrawal method') ||
+                    text.includes('Withdrawal method')) {
+                    // Find the clickable parent
+                    var parent = elements[i];
+                    while (parent && !parent.classList.contains('select') && !parent.classList.contains('dropdown')) {
+                        parent = parent.parentElement;
+                        if (parent && (parent.classList.contains('select') || parent.classList.contains('dropdown'))) {
+                            return parent;
+                        }
+                    }
+                    return elements[i];
+                }
+            }
+            return null;
+            """
+            element = self.driver.execute_script(js_script)
+            if element:
+                self.click_element(element)
+                print("   ✅ Clicked dropdown via JavaScript")
+                time.sleep(1)
+                return True
+        except:
+            pass
         
-        return True
+        print("   ❌ Could not find withdrawal method dropdown")
+        return False
+
+    def select_opay_bank(self):
+        """Select OPAY from the dropdown options"""
+        print("   🔍 Looking for OPAY in dropdown...")
+        
+        # Method 1: Try to find OPAY by text
+        opay_texts = ["OPAY", "Opay", "opay", "OPAY Payment", "OPAY Bank"]
+        
+        for text in opay_texts:
+            try:
+                elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{text}')]")
+                for elem in elements:
+                    if elem.is_displayed() and elem.is_enabled():
+                        self.click_element(elem)
+                        print(f"   ✅ Selected OPAY")
+                        time.sleep(0.5)
+                        return True
+            except:
+                continue
+        
+        # Method 2: Find by li or option elements
+        try:
+            options = self.driver.find_elements(By.XPATH, "//li[contains(@class, 'option') or contains(@class, 'item')]")
+            for opt in options:
+                if "OPAY" in opt.text.upper():
+                    self.click_element(opt)
+                    print("   ✅ Selected OPAY from list item")
+                    time.sleep(0.5)
+                    return True
+        except:
+            pass
+        
+        # Method 3: JavaScript to find and click OPAY
+        try:
+            js_script = """
+            var items = document.querySelectorAll('li, div, span, a');
+            for (var i = 0; i < items.length; i++) {
+                var text = items[i].textContent || '';
+                if (text.trim().toUpperCase() === 'OPAY' || text.includes('OPAY')) {
+                    if (items[i].offsetParent !== null) {
+                        return items[i];
+                    }
+                }
+            }
+            return null;
+            """
+            element = self.driver.execute_script(js_script)
+            if element:
+                self.click_element(element)
+                print("   ✅ Selected OPAY via JavaScript")
+                time.sleep(0.5)
+                return True
+        except:
+            pass
+        
+        print("   ❌ Could not find OPAY option")
+        return False
 
     def select_withdrawal_amount(self, amount):
         """Select withdrawal amount preset"""
         print(f"\n   💰 STEP 2: Selecting amount: {amount}")
         
         time.sleep(1)
-        amount_found = False
         
-        # Try to find amount button
+        # Try to find amount by exact text
         try:
-            amount_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, f"//button[contains(text(), '{amount}')]"))
-            )
-            if amount_btn:
-                self.click_element(amount_btn)
-                amount_found = True
-                print(f"   ✅ Clicked amount: {amount}")
-                time.sleep(1)
+            elements = self.driver.find_elements(By.XPATH, f"//*[normalize-space(text())='{amount}']")
+            for elem in elements:
+                if elem.is_displayed() and elem.is_enabled():
+                    self.click_element(elem)
+                    print(f"   ✅ Clicked amount: {amount}")
+                    self.screenshot("amount_selected")
+                    return True
         except:
             pass
         
-        # Try by text
-        if not amount_found:
-            try:
-                elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{amount}')]")
-                for elem in elements:
-                    if elem.is_displayed() and elem.is_enabled():
+        # Try by contains text
+        try:
+            elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{amount}')]")
+            for elem in elements:
+                if elem.is_displayed() and elem.is_enabled():
+                    # Make sure it's not just a partial match
+                    if elem.text.strip() == str(amount):
                         self.click_element(elem)
-                        amount_found = True
                         print(f"   ✅ Clicked amount: {amount}")
-                        time.sleep(1)
-                        break
-            except:
-                pass
+                        self.screenshot("amount_selected")
+                        return True
+        except:
+            pass
         
-        if not amount_found:
-            print(f"   ❌ Could not find amount button: {amount}")
-            return False
+        # Try to find in grid/buttons
+        try:
+            buttons = self.driver.find_elements(By.XPATH, "//button | //div[@role='button']")
+            for btn in buttons:
+                if btn.is_displayed() and btn.is_enabled():
+                    try:
+                        btn_text = btn.text.replace(',', '').strip()
+                        if btn_text.isdigit() and int(btn_text) == amount:
+                            self.click_element(btn)
+                            print(f"   ✅ Clicked amount: {amount}")
+                            self.screenshot("amount_selected")
+                            return True
+                    except:
+                        continue
+        except:
+            pass
         
-        self.screenshot("amount_selected")
-        return True
+        print(f"   ❌ Could not find amount button: {amount}")
+        return False
 
     def enter_fund_password(self, fund_password):
         """Enter fund password"""
@@ -620,26 +691,35 @@ class WithdrawalBot:
         
         password_field = None
         
-        # Try to find password field
-        try:
-            password_field = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, "//input[@placeholder='Please input fund password']"))
-            )
-            print("   ✅ Found fund password field")
-        except:
-            pass
+        # Try different selectors for fund password
+        password_selectors = [
+            "//input[@placeholder='Please input fund password']",
+            "//input[@placeholder='Fund password']",
+            "//input[@type='password' and contains(@placeholder, 'fund')]",
+            "//input[contains(@class, 'fund')]",
+            "//input[contains(@name, 'fund')]",
+            "//input[contains(@id, 'fund')]"
+        ]
         
-        if not password_field:
+        for selector in password_selectors:
             try:
-                password_field = self.driver.find_element(By.XPATH, "//input[@type='password']")
-                print("   ✅ Found password field by type")
+                password_field = WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_element_located((By.XPATH, selector))
+                )
+                if password_field and password_field.is_displayed():
+                    print(f"   ✅ Found fund password field")
+                    break
             except:
-                pass
+                continue
         
         if not password_field:
+            # Try to find any password input
             try:
-                password_field = self.driver.find_element(By.XPATH, "//input[contains(@placeholder, 'fund')]")
-                print("   ✅ Found password field by placeholder")
+                password_fields = self.driver.find_elements(By.XPATH, "//input[@type='password']")
+                if password_fields:
+                    # Usually the fund password is the last password field
+                    password_field = password_fields[-1]
+                    print("   ✅ Found fund password field by type")
             except:
                 pass
         
@@ -658,47 +738,49 @@ class WithdrawalBot:
         """Click Submit button"""
         print(f"\n   📤 STEP 4: Clicking Submit...")
         
-        submit_found = False
+        # Try different selectors for Submit
+        submit_selectors = [
+            "//button[normalize-space(text())='Submit']",
+            "//button[contains(text(), 'Submit')]",
+            "//button[@type='submit']",
+            "//*[@type='submit']",
+            "//button[contains(@class, 'submit')]",
+            "//button[contains(@class, 'primary')]",
+            "//button[contains(@style, 'green')]",
+            "//div[contains(@class, 'submit-btn')]/button",
+            "//*[contains(@class, 'btn-submit')]"
+        ]
         
-        # Try to find Submit button
+        for selector in submit_selectors:
+            try:
+                submit_btn = WebDriverWait(self.driver, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                if submit_btn and submit_btn.is_displayed():
+                    self.click_element(submit_btn)
+                    print("   ✅ Clicked Submit")
+                    self.screenshot("submit_clicked")
+                    return True
+            except:
+                continue
+        
+        # Try to find by text "Submit" in any element
         try:
-            submit_btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
-            )
-            if submit_btn:
-                self.click_element(submit_btn)
-                submit_found = True
-                print("   ✅ Clicked Submit")
-                time.sleep(2)
+            elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Submit')]")
+            for elem in elements:
+                if elem.is_displayed() and elem.is_enabled():
+                    # Check if it's a button or clickable
+                    tag = elem.tag_name.lower()
+                    if tag in ['button', 'a'] or elem.get_attribute('role') == 'button':
+                        self.click_element(elem)
+                        print("   ✅ Clicked Submit by text")
+                        self.screenshot("submit_clicked")
+                        return True
         except:
             pass
         
-        if not submit_found:
-            try:
-                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-                self.click_element(submit_btn)
-                submit_found = True
-                print("   ✅ Clicked Submit (contains text)")
-                time.sleep(2)
-            except:
-                pass
-        
-        if not submit_found:
-            try:
-                submit_btn = self.driver.find_element(By.XPATH, "//button[contains(@class, 'submit')]")
-                self.click_element(submit_btn)
-                submit_found = True
-                print("   ✅ Clicked Submit (by class)")
-                time.sleep(2)
-            except:
-                pass
-        
-        if not submit_found:
-            print("   ❌ Could not find Submit button")
-            return False
-        
-        self.screenshot("submit_clicked")
-        return True
+        print("   ❌ Could not find Submit button")
+        return False
 
     def confirm_withdrawal(self, phone, amount, bank_name):
         """Handle confirmation - works in both headless and interactive mode"""
@@ -716,12 +798,11 @@ class WithdrawalBot:
             response = input("   Confirm? (yes/no): ").strip().lower()
             return response == 'yes'
         except (EOFError, KeyboardInterrupt):
-            # If we can't read input, auto-confirm
             print("   ⚠️ No input available - auto-confirming")
             return True
 
     def perform_withdrawal(self, login_data):
-        """Complete withdrawal process"""
+        """Complete withdrawal process with custom UI"""
         phone = login_data['phone']
         bank_name = login_data['bank_name']
         fund_password = login_data['fund_password']
@@ -750,25 +831,33 @@ class WithdrawalBot:
             self.safety.log_withdrawal(phone, withdrawal_amount, "blocked", safety_check['reason'])
             return False
         
-        # Confirm withdrawal (handles headless mode)
+        # Confirm withdrawal
         if not self.confirm_withdrawal(phone, withdrawal_amount, bank_name):
             print("   ❌ Cancelled")
             self.safety.log_withdrawal(phone, withdrawal_amount, "cancelled", "User cancelled")
             return False
 
-        # Execute withdrawal steps
-        if not self.select_withdrawal_method(bank_name):
-            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select bank")
+        # STEP 1: Click withdrawal method dropdown
+        if not self.click_withdrawal_method_dropdown():
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not click dropdown")
+            return False
+        
+        # STEP 2: Select OPAY from dropdown
+        if not self.select_opay_bank():
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select OPAY")
             return False
 
+        # STEP 3: Select amount
         if not self.select_withdrawal_amount(withdrawal_amount):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
+        # STEP 4: Enter fund password
         if not self.enter_fund_password(fund_password):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter password")
             return False
 
+        # STEP 5: Click Submit
         if not self.click_submit_button():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
             return False
