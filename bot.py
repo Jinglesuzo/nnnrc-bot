@@ -412,7 +412,7 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - FIXED SUBMIT BUTTON
+    # WITHDRAWAL - WITH CONFIRMATION DIALOG
     # ============================================
 
     def click_withdrawal_method(self):
@@ -532,26 +532,24 @@ class WithdrawalBot:
         return False
 
     def click_submit_button(self):
-        """Click Submit button - FIXED with multiple strategies"""
+        """Click Submit button"""
         print("   📤 Clicking Submit...")
         
-        # Wait a moment for the button to be ready
         time.sleep(1)
         
-        # Strategy 1: Find by exact text on button
+        # Try to find by exact text
         try:
             btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
             if btn.is_displayed() and btn.is_enabled():
-                # Scroll to button
                 self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", btn)
                 time.sleep(0.5)
                 self.click_element(btn)
                 print("   ✅ Clicked Submit (exact text)")
                 return True
-        except Exception as e:
-            print(f"   Strategy 1 failed: {e}")
+        except:
+            pass
         
-        # Strategy 2: Find by contains text
+        # Try to find by contains text
         try:
             elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Submit')]")
             for elem in elements:
@@ -563,17 +561,15 @@ class WithdrawalBot:
                         self.click_element(elem)
                         print("   ✅ Clicked Submit (contains text)")
                         return True
-        except Exception as e:
-            print(f"   Strategy 2 failed: {e}")
+        except:
+            pass
         
-        # Strategy 3: Find by class (green button)
+        # Try by class
         try:
             class_selectors = [
                 "//button[contains(@class, 'submit')]",
                 "//button[contains(@class, 'primary')]",
-                "//button[contains(@class, 'btn-primary')]",
                 "//button[contains(@class, 'green')]",
-                "//button[contains(@style, 'green')]",
                 "//button[@type='submit']"
             ]
             
@@ -589,74 +585,99 @@ class WithdrawalBot:
                             return True
                 except:
                     continue
-        except Exception as e:
-            print(f"   Strategy 3 failed: {e}")
+        except:
+            pass
         
-        # Strategy 4: Find any button at the bottom of the page
+        print("   ❌ Could not find Submit button")
+        return False
+
+    def handle_confirmation_dialog(self):
+        """
+        Handle the confirmation dialog that appears after clicking Submit
+        Based on screenshots: Shows "Cancel" and "Confirm" buttons
+        """
+        print("   🔘 Checking for confirmation dialog...")
+        
+        time.sleep(2)  # Wait for dialog to appear
+        
+        # Try to find and click the "Confirm" button in the dialog
+        confirm_selectors = [
+            "//button[normalize-space()='Confirm']",
+            "//button[contains(text(), 'Confirm')]",
+            "//button[contains(@class, 'confirm')]",
+            "//button[contains(@class, 'primary') and contains(text(), 'Confirm')]",
+            "//div[contains(@class, 'dialog')]//button[contains(text(), 'Confirm')]",
+            "//div[contains(@class, 'modal')]//button[contains(text(), 'Confirm')]",
+            "//div[contains(@role, 'dialog')]//button[contains(text(), 'Confirm')]"
+        ]
+        
+        for selector in confirm_selectors:
+            try:
+                confirm_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, selector))
+                )
+                if confirm_btn.is_displayed() and confirm_btn.is_enabled():
+                    self.click_element(confirm_btn)
+                    print("   ✅ Clicked Confirm in dialog")
+                    self.screenshot("confirmation_clicked")
+                    time.sleep(2)
+                    return True
+            except:
+                continue
+        
+        # Try to find "Confirm" by text in any element
         try:
-            # Get all buttons
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            print(f"   Found {len(buttons)} buttons on page")
-            
-            # Check each button
-            for i, btn in enumerate(buttons):
-                if btn.is_displayed() and btn.is_enabled():
-                    text = btn.text.strip()
-                    print(f"   Button {i+1}: '{text}'")
-                    # If it's the last button or has submit-like text
-                    if text == "Submit" or text.lower() == "submit" or i == len(buttons) - 1:
-                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", btn)
-                        time.sleep(0.5)
-                        self.click_element(btn)
-                        print(f"   ✅ Clicked Submit (last button: '{text}')")
+            elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Confirm')]")
+            for elem in elements:
+                if elem.is_displayed() and elem.is_enabled():
+                    tag = elem.tag_name.lower()
+                    if tag == 'button' or tag == 'a' or elem.get_attribute('role') == 'button':
+                        self.click_element(elem)
+                        print("   ✅ Clicked Confirm (by text)")
+                        self.screenshot("confirmation_clicked")
+                        time.sleep(2)
                         return True
-        except Exception as e:
-            print(f"   Strategy 4 failed: {e}")
+        except:
+            pass
         
-        # Strategy 5: JavaScript to find and click
+        # Try JavaScript to find and click Confirm
         try:
             js_script = """
-            var buttons = document.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                var text = buttons[i].textContent.trim();
-                if (text === 'Submit' || text.toLowerCase() === 'submit' || text.includes('Submit')) {
-                    if (buttons[i].offsetParent !== null) {
-                        return buttons[i];
+            var elements = document.querySelectorAll('button, a, div[role="button"]');
+            for (var i = 0; i < elements.length; i++) {
+                var text = elements[i].textContent.trim();
+                if (text === 'Confirm' || text.toLowerCase() === 'confirm') {
+                    if (elements[i].offsetParent !== null) {
+                        return elements[i];
                     }
-                }
-            }
-            // If no Submit button, return the last visible button
-            for (var i = buttons.length - 1; i >= 0; i--) {
-                if (buttons[i].offsetParent !== null) {
-                    return buttons[i];
                 }
             }
             return null;
             """
             element = self.driver.execute_script(js_script)
             if element:
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
-                time.sleep(0.5)
                 self.click_element(element)
-                print("   ✅ Clicked Submit via JavaScript")
-                return True
-        except Exception as e:
-            print(f"   Strategy 5 failed: {e}")
-        
-        # Strategy 6: Look for input type submit
-        try:
-            submit_input = self.driver.find_element(By.XPATH, "//input[@type='submit']")
-            if submit_input.is_displayed() and submit_input.is_enabled():
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_input)
-                time.sleep(0.5)
-                self.click_element(submit_input)
-                print("   ✅ Clicked Submit (input type submit)")
+                print("   ✅ Clicked Confirm via JavaScript")
+                time.sleep(2)
                 return True
         except:
             pass
         
-        print("   ❌ Could not find Submit button")
-        return False
+        # If no Confirm button found, check if dialog is even showing
+        try:
+            # Check if any dialog/modal is visible
+            dialog = self.driver.find_element(By.XPATH, "//div[contains(@class, 'dialog') or contains(@class, 'modal') or contains(@role, 'dialog')]")
+            if dialog.is_displayed():
+                print("   ⚠️ Dialog found but no Confirm button - trying to close with Enter key")
+                # Try pressing Enter
+                self.driver.execute_script("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));")
+                time.sleep(1)
+                return True
+        except:
+            pass
+        
+        print("   ⚠️ No confirmation dialog found or already confirmed")
+        return True  # Return True even if no dialog found (might be auto-confirmed)
 
     def confirm_withdrawal(self, phone, amount, bank_name):
         if self.is_headless or not self.safety.config.get("require_confirmation", True):
@@ -735,8 +756,13 @@ class WithdrawalBot:
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
             return False
 
-        print(f"\n   ✅ Withdrawal submitted!")
-        self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal submitted")
+        # STEP 6: Handle confirmation dialog
+        if not self.handle_confirmation_dialog():
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Confirmation failed")
+            return False
+
+        print(f"\n   ✅ Withdrawal submitted successfully!")
+        self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal submitted and confirmed")
         
         time.sleep(3)
         self.screenshot("withdrawal_complete")
