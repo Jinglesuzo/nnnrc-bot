@@ -169,6 +169,8 @@ class WithdrawalBot:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
+        # Uncomment to debug
+        # options.add_argument("--headless=false")
 
         print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
@@ -218,22 +220,49 @@ class WithdrawalBot:
                 except:
                     return False
 
-    def type_text(self, element, text):
+    def type_text_robust(self, element, text):
+        """Type text with multiple fallback methods"""
         try:
+            # Method 1: Scroll, click, clear, type
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-            time.sleep(0.3)
+            time.sleep(0.5)
+            
+            # Click to focus
             element.click()
-            time.sleep(0.2)
-            element.clear()
-            time.sleep(0.2)
+            time.sleep(0.3)
+            
+            # Clear using multiple methods
+            try:
+                element.clear()
+            except:
+                self.driver.execute_script("arguments[0].value = '';", element)
+            
+            time.sleep(0.3)
+            
+            # Type character by character
             for char in text:
                 element.send_keys(char)
                 time.sleep(0.05)
-            time.sleep(0.2)
-            return True
-        except:
-            try:
+            
+            # Verify it was typed
+            typed_value = element.get_attribute('value')
+            if typed_value == text:
+                print(f"   ✅ Successfully typed: '{text}'")
+                return True
+            else:
+                print(f"   ⚠️ Typed but value mismatch. Got: '{typed_value}'")
+                
+                # Try JavaScript to set value
                 self.driver.execute_script(f"arguments[0].value = '{text}';", element)
+                time.sleep(0.3)
+                return True
+                
+        except Exception as e:
+            print(f"   ❌ Type error: {e}")
+            try:
+                # Method 2: JavaScript fallback
+                self.driver.execute_script(f"arguments[0].value = '{text}';", element)
+                time.sleep(0.3)
                 return True
             except:
                 return False
@@ -412,14 +441,13 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - WITH CONFIRMATION DIALOG
+    # WITHDRAWAL - FIXED FUND PASSWORD
     # ============================================
 
     def click_withdrawal_method(self):
         """Click the 'Withdrawal method' field"""
         print("   🔘 Clicking 'Withdrawal method'...")
         
-        # Try to find by text "Select withdrawal method"
         try:
             element = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Select withdrawal method')]")
             if element.is_displayed():
@@ -430,7 +458,6 @@ class WithdrawalBot:
         except:
             pass
         
-        # Try clicking parent of "Withdrawal method" label
         try:
             label = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Withdrawal method')]")
             print("   ✅ Found 'Withdrawal method' label")
@@ -506,29 +533,83 @@ class WithdrawalBot:
         return False
 
     def enter_fund_password(self, password):
-        """Enter fund password"""
-        print("   🔑 Entering fund password...")
+        """
+        Enter fund password - FIXED with robust typing
+        Based on screenshot: "Please input fund password" placeholder
+        """
+        print(f"   🔑 Entering fund password: {password}")
         
+        # Wait a moment for the field to be ready
+        time.sleep(1)
+        
+        # Find the fund password field
+        fund_field = None
+        
+        # Try by placeholder
         try:
-            field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
-            if field.is_displayed():
-                self.type_text(field, password)
-                print("   ✅ Fund password entered")
+            fund_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
+            print("   ✅ Found fund password field by placeholder")
+        except:
+            pass
+        
+        # Try by type password (should be the only password field)
+        if not fund_field:
+            try:
+                password_fields = self.driver.find_elements(By.XPATH, "//input[@type='password']")
+                if password_fields:
+                    # Use the last password field (fund password is usually after login password)
+                    fund_field = password_fields[-1]
+                    print("   ✅ Found fund password field by type")
+            except:
+                pass
+        
+        # Try by contains "fund" in placeholder
+        if not fund_field:
+            try:
+                fund_field = self.driver.find_element(By.XPATH, "//input[contains(@placeholder, 'fund') or contains(@placeholder, 'Fund')]")
+                print("   ✅ Found fund password field by placeholder contains 'fund'")
+            except:
+                pass
+        
+        # Try by label text "Fund password"
+        if not fund_field:
+            try:
+                label = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Fund password')]")
+                parent = label.find_element(By.XPATH, "./ancestor::div[1]")
+                if parent:
+                    inputs = parent.find_elements(By.TAG_NAME, "input")
+                    if inputs:
+                        fund_field = inputs[0]
+                        print("   ✅ Found fund password field by label")
+            except:
+                pass
+        
+        if not fund_field:
+            print("   ❌ Could not find fund password field")
+            self.screenshot("fund_password_field_not_found")
+            return False
+        
+        # Type the password using robust method
+        if self.type_text_robust(fund_field, password):
+            # Verify it was actually typed
+            time.sleep(0.5)
+            typed_value = fund_field.get_attribute('value')
+            if typed_value == password:
+                print(f"   ✅ Fund password verified: '{typed_value}'")
+                self.screenshot("fund_password_entered")
                 return True
-        except:
-            pass
-        
-        try:
-            fields = self.driver.find_elements(By.XPATH, "//input[@type='password']")
-            for field in fields:
-                if field.is_displayed():
-                    self.type_text(field, password)
-                    print("   ✅ Fund password entered")
+            else:
+                print(f"   ⚠️ Fund password field value: '{typed_value}' (expected: '{password}')")
+                # Try one more time with JavaScript
+                try:
+                    self.driver.execute_script(f"arguments[0].value = '{password}';", fund_field)
+                    time.sleep(0.3)
+                    print("   ✅ Set fund password via JavaScript")
+                    self.screenshot("fund_password_entered")
                     return True
-        except:
-            pass
+                except:
+                    return False
         
-        print("   ❌ Could not find fund password field")
         return False
 
     def click_submit_button(self):
@@ -537,7 +618,6 @@ class WithdrawalBot:
         
         time.sleep(1)
         
-        # Try to find by exact text
         try:
             btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
             if btn.is_displayed() and btn.is_enabled():
@@ -549,7 +629,6 @@ class WithdrawalBot:
         except:
             pass
         
-        # Try to find by contains text
         try:
             elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Submit')]")
             for elem in elements:
@@ -564,43 +643,15 @@ class WithdrawalBot:
         except:
             pass
         
-        # Try by class
-        try:
-            class_selectors = [
-                "//button[contains(@class, 'submit')]",
-                "//button[contains(@class, 'primary')]",
-                "//button[contains(@class, 'green')]",
-                "//button[@type='submit']"
-            ]
-            
-            for selector in class_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    for btn in elements:
-                        if btn.is_displayed() and btn.is_enabled():
-                            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", btn)
-                            time.sleep(0.5)
-                            self.click_element(btn)
-                            print(f"   ✅ Clicked Submit (by class)")
-                            return True
-                except:
-                    continue
-        except:
-            pass
-        
         print("   ❌ Could not find Submit button")
         return False
 
     def handle_confirmation_dialog(self):
-        """
-        Handle the confirmation dialog that appears after clicking Submit
-        Based on screenshots: Shows "Cancel" and "Confirm" buttons
-        """
+        """Handle the confirmation dialog"""
         print("   🔘 Checking for confirmation dialog...")
         
-        time.sleep(2)  # Wait for dialog to appear
+        time.sleep(2)
         
-        # Try to find and click the "Confirm" button in the dialog
         confirm_selectors = [
             "//button[normalize-space()='Confirm']",
             "//button[contains(text(), 'Confirm')]",
@@ -625,7 +676,6 @@ class WithdrawalBot:
             except:
                 continue
         
-        # Try to find "Confirm" by text in any element
         try:
             elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), 'Confirm')]")
             for elem in elements:
@@ -640,48 +690,11 @@ class WithdrawalBot:
         except:
             pass
         
-        # Try JavaScript to find and click Confirm
-        try:
-            js_script = """
-            var elements = document.querySelectorAll('button, a, div[role="button"]');
-            for (var i = 0; i < elements.length; i++) {
-                var text = elements[i].textContent.trim();
-                if (text === 'Confirm' || text.toLowerCase() === 'confirm') {
-                    if (elements[i].offsetParent !== null) {
-                        return elements[i];
-                    }
-                }
-            }
-            return null;
-            """
-            element = self.driver.execute_script(js_script)
-            if element:
-                self.click_element(element)
-                print("   ✅ Clicked Confirm via JavaScript")
-                time.sleep(2)
-                return True
-        except:
-            pass
-        
-        # If no Confirm button found, check if dialog is even showing
-        try:
-            # Check if any dialog/modal is visible
-            dialog = self.driver.find_element(By.XPATH, "//div[contains(@class, 'dialog') or contains(@class, 'modal') or contains(@role, 'dialog')]")
-            if dialog.is_displayed():
-                print("   ⚠️ Dialog found but no Confirm button - trying to close with Enter key")
-                # Try pressing Enter
-                self.driver.execute_script("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));")
-                time.sleep(1)
-                return True
-        except:
-            pass
-        
         print("   ⚠️ No confirmation dialog found or already confirmed")
-        return True  # Return True even if no dialog found (might be auto-confirmed)
+        return True
 
     def confirm_withdrawal(self, phone, amount, bank_name):
         if self.is_headless or not self.safety.config.get("require_confirmation", True):
-            print(f"   ✅ Auto-confirming withdrawal")
             return True
         
         try:
@@ -693,7 +706,6 @@ class WithdrawalBot:
             response = input("   Confirm? (yes/no): ").strip().lower()
             return response == 'yes'
         except (EOFError, KeyboardInterrupt):
-            print("   ⚠️ No input - auto-confirming")
             return True
 
     def perform_withdrawal(self, login_data):
@@ -732,31 +744,37 @@ class WithdrawalBot:
             return False
 
         # STEP 1: Click withdrawal method
+        print("\n   📋 STEP 1: Select withdrawal method")
         if not self.click_withdrawal_method():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not click method")
             return False
         
         # STEP 2: Select OPAY
+        print("\n   📋 STEP 2: Select OPAY")
         if not self.select_opay():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select OPAY")
             return False
 
         # STEP 3: Click amount
+        print("\n   📋 STEP 3: Select amount")
         if not self.click_amount(withdrawal_amount):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
-        # STEP 4: Enter fund password
+        # STEP 4: Enter fund password - FIXED
+        print("\n   📋 STEP 4: Enter fund password")
         if not self.enter_fund_password(fund_password):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter password")
             return False
 
         # STEP 5: Click Submit
+        print("\n   📋 STEP 5: Click Submit")
         if not self.click_submit_button():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
             return False
 
         # STEP 6: Handle confirmation dialog
+        print("\n   📋 STEP 6: Handle confirmation")
         if not self.handle_confirmation_dialog():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Confirmation failed")
             return False
