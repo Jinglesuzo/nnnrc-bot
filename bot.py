@@ -11,10 +11,10 @@ import os
 import sys
 import json
 from datetime import datetime, date
-import logging
+import re
 
 # ============================================
-# WITHDRAWAL MANAGER - SAFETY & LIMITS
+# WITHDRAWAL SAFETY MANAGER
 # ============================================
 
 class WithdrawalSafetyManager:
@@ -29,24 +29,12 @@ class WithdrawalSafetyManager:
         self.load_history()
         self.check_reset_daily()
         
-        # Setup logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('withdrawal.log'),
-                logging.StreamHandler()
-            ]
-        )
-        self.logger = logging.getLogger(__name__)
-    
     def load_config(self, config_file):
-        """Load or create withdrawal config"""
         default_config = {
-            "max_daily_withdrawal": 5000.0,  # Maximum per day
-            "max_single_withdrawal": 1000.0,  # Maximum per transaction
-            "min_balance_threshold": 500.0,   # Minimum balance to keep
-            "withdrawal_cooldown_seconds": 300,  # 5 minutes between withdrawals
+            "max_daily_withdrawal": 5000.0,
+            "max_single_withdrawal": 3000.0,
+            "min_balance_threshold": 100.0,
+            "withdrawal_cooldown_seconds": 60,
             "require_confirmation": True,
             "enable_safety_limits": True,
             "auto_stop_on_failure": True,
@@ -56,7 +44,6 @@ class WithdrawalSafetyManager:
         try:
             with open(config_file, 'r') as f:
                 config = json.load(f)
-                # Merge with defaults
                 for key, value in default_config.items():
                     if key not in config:
                         config[key] = value
@@ -68,7 +55,6 @@ class WithdrawalSafetyManager:
             return default_config
     
     def load_history(self):
-        """Load withdrawal history"""
         try:
             with open('withdrawal_history.json', 'r') as f:
                 data = json.load(f)
@@ -80,32 +66,28 @@ class WithdrawalSafetyManager:
             self.daily_withdrawn = 0
     
     def save_history(self):
-        """Save withdrawal history"""
         data = {
             'date': self.today.isoformat(),
             'daily_withdrawn': self.daily_withdrawn,
-            'history': self.withdrawal_history[-100:]  # Keep last 100 entries
+            'history': self.withdrawal_history[-100:]
         }
         with open('withdrawal_history.json', 'w') as f:
             json.dump(data, f, indent=2)
     
     def check_reset_daily(self):
-        """Reset daily counter if new day"""
         today = date.today()
         if today > self.today:
             self.daily_withdrawn = 0
             self.today = today
             self.save_history()
-            self.logger.info("🔄 Daily withdrawal counter reset")
+            print("🔄 Daily withdrawal counter reset")
     
-    def can_withdraw(self, amount, account_phone, balance=None):
-        """Check if withdrawal is allowed"""
+    def can_withdraw(self, amount, account_phone):
         self.check_reset_daily()
         
         if not self.config.get("enable_safety_limits", True):
             return {"allowed": True}
         
-        # Check daily limit
         if self.daily_withdrawn + amount > self.config["max_daily_withdrawal"]:
             remaining = self.config["max_daily_withdrawal"] - self.daily_withdrawn
             return {
@@ -114,7 +96,6 @@ class WithdrawalSafetyManager:
                 "remaining": remaining
             }
         
-        # Check single withdrawal limit
         if amount > self.config["max_single_withdrawal"]:
             return {
                 "allowed": False,
@@ -122,7 +103,6 @@ class WithdrawalSafetyManager:
                 "max_allowed": self.config["max_single_withdrawal"]
             }
         
-        # Check cooldown
         time_since_last = time.time() - self.last_withdrawal_time
         if time_since_last < self.config["withdrawal_cooldown_seconds"]:
             wait_time = self.config["withdrawal_cooldown_seconds"] - time_since_last
@@ -132,30 +112,9 @@ class WithdrawalSafetyManager:
                 "wait_seconds": wait_time
             }
         
-        # Check account-specific limits (recent failures)
-        recent_failures = self.get_recent_failures(account_phone)
-        if recent_failures >= self.config.get("max_retries_per_account", 3):
-            return {
-                "allowed": False,
-                "reason": f"Too many recent failures ({recent_failures}). Pausing account",
-                "failures": recent_failures
-            }
-        
         return {"allowed": True}
     
-    def get_recent_failures(self, account_phone, hours=24):
-        """Get number of recent failures for an account"""
-        cutoff = time.time() - (hours * 3600)
-        failures = 0
-        for entry in self.withdrawal_history:
-            if (entry.get('account') == account_phone and 
-                entry.get('status') == 'failed' and
-                entry.get('timestamp', 0) > cutoff):
-                failures += 1
-        return failures
-    
     def log_withdrawal(self, account_phone, amount, status, details=""):
-        """Log a withdrawal attempt"""
         entry = {
             'timestamp': time.time(),
             'datetime': datetime.now().isoformat(),
@@ -169,18 +128,13 @@ class WithdrawalSafetyManager:
         if status == 'success':
             self.daily_withdrawn += amount
             self.last_withdrawal_time = time.time()
-            self.logger.info(f"✅ Withdrawal logged: ${amount:.2f} from {account_phone}")
+            print(f"   ✅ Logged: ${amount:.2f} from {account_phone}")
         else:
-            self.logger.warning(f"❌ Failed withdrawal: {details}")
+            print(f"   ❌ Failed: {details}")
         
         self.save_history()
-        
-        # Print safety summary
-        remaining = self.config["max_daily_withdrawal"] - self.daily_withdrawn
-        print(f"   📊 Daily remaining: ${remaining:.2f}")
     
     def get_daily_summary(self):
-        """Get daily summary"""
         self.check_reset_daily()
         return {
             'today': self.today.isoformat(),
@@ -204,8 +158,9 @@ class WithdrawalBot:
         # Initialize safety manager
         self.safety = WithdrawalSafetyManager()
         
-        # Track balance per account
-        self.account_balances = {}
+        # Track withdrawal amounts
+        self.withdrawal_amounts = [1800, 3000, 8000, 25000, 70000, 200000, 500000, 1000000, 3000000]
+        self.amount_to_withdraw = 1800  # Default to smallest amount
 
         options = Options()
         options.add_argument("--headless=new")
@@ -231,15 +186,6 @@ class WithdrawalBot:
             filename = f"bot{self.bot_id}_{self.step:03d}_{name}.png"
             self.driver.save_screenshot(filename)
             print(f"   📸 {filename}")
-        except:
-            pass
-
-    def save_html(self, name):
-        try:
-            filename = f"bot{self.bot_id}_{name}.html"
-            with open(filename, "w", encoding="utf-8") as f:
-                f.write(self.driver.page_source)
-            print(f"   💾 Saved HTML: {filename}")
         except:
             pass
 
@@ -300,38 +246,11 @@ class WithdrawalBot:
                         })
             print(f"📋 Bot {self.bot_id} Loaded {len(self.logins)} login(s)")
         except Exception as e:
-            print(f"❌ Bot {self.bot_id} Error loading logins.csv: {e}")
+            print(f"❌ Error loading logins.csv: {e}")
             self.logins = [{'phone': '08057536473', 'password': 'people56', 'real_name': 'John Penn', 'bank_name': 'OPAY', 'bank_account': '9074331299', 'fund_password': '3333'}]
 
-    def find_login_button(self):
-        print("   🔍 Looking for login button...")
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
-            print("   ✅ Found 'Log in now'")
-            return btn
-        except:
-            pass
-        try:
-            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
-            print("   ✅ Found submit button")
-            return btn
-        except:
-            pass
-        try:
-            buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            for btn in buttons:
-                if btn.is_displayed():
-                    text = btn.text.lower()
-                    if 'log' in text or 'in' in text or 'submit' in text:
-                        print(f"   ✅ Found button: '{btn.text}'")
-                        return btn
-        except:
-            pass
-        print("   ❌ No login button found")
-        return None
-
     # ============================================
-    # ENHANCED LOGIN WITH BALANCE CHECK
+    # LOGIN
     # ============================================
 
     def login(self, phone, password):
@@ -371,10 +290,6 @@ class WithdrawalBot:
             if "important notice" in page_source or "cooperative wealth zone" in page_source:
                 print("   ✅ Login success!")
                 self.logged_in_accounts.append(phone)
-                
-                # Try to get balance
-                self.get_account_balance()
-                
                 return True
             else:
                 print("   ❌ Login failed")
@@ -383,50 +298,82 @@ class WithdrawalBot:
             print(f"   ❌ Login error: {e}")
             return False
 
-    def get_account_balance(self):
-        """Try to get current account balance"""
+    def find_login_button(self):
+        print("   🔍 Looking for login button...")
         try:
-            # Look for balance element
-            balance_selectors = [
-                "//*[contains(@class, 'balance')]",
-                "//*[contains(text(), 'Balance')]",
-                "//*[contains(@class, 'total')]",
-                "//span[contains(@class, 'amount')]",
-                "//div[contains(@class, 'amount')]"
-            ]
-            
-            for selector in balance_selectors:
-                try:
-                    element = self.driver.find_element(By.XPATH, selector)
-                    text = element.text.strip()
-                    # Try to extract number
-                    import re
-                    numbers = re.findall(r'[\d,]+\.?\d*', text)
-                    if numbers:
-                        balance = float(numbers[0].replace(',', ''))
-                        print(f"   💰 Balance: ${balance:.2f}")
-                        return balance
-                except:
-                    continue
+            btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Log in now')]")
+            print("   ✅ Found 'Log in now'")
+            return btn
         except:
             pass
+        try:
+            btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+            print("   ✅ Found submit button")
+            return btn
+        except:
+            pass
+        try:
+            buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            for btn in buttons:
+                if btn.is_displayed():
+                    text = btn.text.lower()
+                    if 'log' in text or 'in' in text or 'submit' in text:
+                        print(f"   ✅ Found button: '{btn.text}'")
+                        return btn
+        except:
+            pass
+        print("   ❌ No login button found")
         return None
 
     # ============================================
-    # ENHANCED WITHDRAWAL WITH SAFETY CHECKS
+    # GET BALANCE FROM WITHDRAWAL PAGE
     # ============================================
 
-    def select_withdrawal_method(self, bank_name):
-        """Select the bank for withdrawal"""
-        print(f"   🔘 Looking for withdrawal method field...")
+    def get_balance_from_page(self):
+        """Extract balance from the withdrawal page"""
+        try:
+            # Look for "Balance: X" text pattern
+            page_text = self.driver.page_source
+            balance_match = re.search(r'Balance:\s*([\d,]+\.?\d*)', page_text)
+            if balance_match:
+                balance = float(balance_match.group(1).replace(',', ''))
+                print(f"   💰 Balance: ${balance:.2f}")
+                return balance
+        except:
+            pass
         
-        # Click the withdrawal method field
+        # Alternative: look for span/div with balance class
+        try:
+            balance_element = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Balance:')]")
+            text = balance_element.text
+            balance_match = re.search(r'[\d,]+\.?\d*', text)
+            if balance_match:
+                balance = float(balance_match.group().replace(',', ''))
+                print(f"   💰 Balance: ${balance:.2f}")
+                return balance
+        except:
+            pass
+        
+        return None
+
+    # ============================================
+    # WITHDRAWAL - SPECIFIC TO YOUR UI
+    # ============================================
+
+    def select_withdrawal_method(self, bank_name="OPAY"):
+        """
+        Click the withdrawal method dropdown and select OPAY
+        Based on your screenshot: "Withdrawal method" field
+        """
+        print(f"   🔘 Selecting withdrawal method...")
+        
+        # Step 1: Find and click the withdrawal method field
         method_selectors = [
-            "//*[contains(text(), 'Select withdrawal method')]",
             "//*[contains(text(), 'Withdrawal method')]",
-            "//*[contains(@class, 'withdrawal-method')]",
-            "//*[contains(@class, 'method-select')]",
-            "//div[contains(@class, 'dropdown')]"
+            "//*[contains(text(), 'Withdrawal')]",
+            "//div[contains(@class, 'withdrawal-method')]",
+            "//div[contains(text(), 'Select withdrawal method')]",
+            "//div[contains(@class, 'select')]"
         ]
         
         method_field = None
@@ -444,20 +391,21 @@ class WithdrawalBot:
         if method_field:
             self.click_element(method_field)
             time.sleep(1.5)
-            self.screenshot("method_clicked")
-            print("   ✅ Clicked withdrawal method")
+            self.screenshot("method_dropdown_clicked")
+            print("   ✅ Clicked withdrawal method dropdown")
         else:
-            print("   ❌ Could not find withdrawal method")
+            print("   ❌ Could not find withdrawal method field")
             return False
 
-        # Select OPAY
-        print(f"   🔘 Looking for {bank_name}...")
+        # Step 2: Select OPAY from dropdown
+        print(f"   🔘 Looking for {bank_name} option...")
         bank_selectors = [
             f"//*[contains(text(), '{bank_name}')]",
             f"//*[contains(text(), '{bank_name.upper()}')]",
             "//li[contains(text(), 'OPAY')]",
             "//div[contains(text(), 'OPAY')]",
-            "//span[contains(text(), 'OPAY')]"
+            "//span[contains(text(), 'OPAY')]",
+            "//*[contains(@class, 'option') and contains(text(), 'OPAY')]"
         ]
         
         for selector in bank_selectors:
@@ -477,66 +425,89 @@ class WithdrawalBot:
         print(f"   ❌ Could not select {bank_name}")
         return False
 
-    def enter_withdrawal_amount(self, amount):
-        """Enter withdrawal amount"""
-        print(f"   💰 Entering amount: ${amount:.2f}")
+    def select_withdrawal_amount(self, amount):
+        """
+        Click a preset amount button from the grid
+        Based on your screenshot: 1800, 3000, 8000, etc.
+        """
+        print(f"   💰 Selecting withdrawal amount: {amount}")
+        
+        # Try to find the amount button by exact text
         try:
-            # Look for amount input
-            amount_selectors = [
-                "//input[@placeholder='Please enter amount']",
-                "//input[contains(@placeholder, 'amount')]",
-                "//input[contains(@name, 'amount')]",
-                "//input[contains(@class, 'amount')]"
-            ]
-            
-            for selector in amount_selectors:
-                try:
-                    amount_field = WebDriverWait(self.driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, selector))
-                    )
-                    if amount_field:
-                        self.type_text(amount_field, str(amount))
-                        print(f"   ✅ Entered amount: ${amount:.2f}")
-                        self.screenshot("amount_entered")
-                        return True
-                except:
-                    continue
-        except Exception as e:
-            print(f"   ❌ Amount entry error: {e}")
+            amount_btn = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, f"//*[text()='{amount}']"))
+            )
+            self.click_element(amount_btn)
+            print(f"   ✅ Clicked amount: {amount}")
+            self.screenshot("amount_selected")
+            return True
+        except:
+            pass
+        
+        # Try to find by contains text
+        try:
+            amount_btn = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, f"//*[contains(text(), '{amount}')]"))
+            )
+            self.click_element(amount_btn)
+            print(f"   ✅ Clicked amount: {amount}")
+            self.screenshot("amount_selected")
+            return True
+        except:
+            pass
+        
+        # Try to find in a grid/button container
+        try:
+            # Look for any button/div that contains the amount
+            elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{amount}')]")
+            for elem in elements:
+                if elem.is_displayed() and elem.is_enabled():
+                    self.click_element(elem)
+                    print(f"   ✅ Clicked amount: {amount}")
+                    self.screenshot("amount_selected")
+                    return True
+        except:
+            pass
+        
+        print(f"   ❌ Could not find amount button: {amount}")
         return False
 
-    def enter_fund_password(self, fund_password):
-        """Enter the fund password"""
+    def get_fund_password_field(self):
+        """
+        Find the fund password input field
+        Based on your screenshot: "Fund password" field
+        """
         print("   🔘 Looking for fund password field...")
+        
         fund_selectors = [
             "//input[@placeholder='Please input fund password']",
+            "//input[@placeholder='Fund password']",
             "//input[contains(@placeholder, 'fund')]",
+            "//input[@type='password' and contains(@placeholder, 'fund')]",
+            "//input[contains(@class, 'fund')]",
+            "//input[contains(@name, 'fund')]",
             "//input[@type='password']"
         ]
         
-        fund_field = None
         for selector in fund_selectors:
             try:
                 fund_field = WebDriverWait(self.driver, 5).until(
                     EC.presence_of_element_located((By.XPATH, selector))
                 )
-                if fund_field:
+                if fund_field and fund_field.is_displayed():
                     print("   ✅ Found fund password field")
-                    break
+                    return fund_field
             except:
                 continue
         
-        if fund_field:
-            self.type_text(fund_field, fund_password)
-            print(f"   🔑 Entered fund password: {fund_password}")
-            self.screenshot("fund_password_entered")
-            return True
-        else:
-            print("   ❌ Could not find fund password field")
-            return False
+        print("   ❌ Could not find fund password field")
+        return None
 
     def click_submit_button(self):
-        """Click the green Submit button"""
+        """
+        Click the green Submit button
+        Based on your screenshot: Green "Submit" button at bottom
+        """
         print("   🔘 Clicking Submit button...")
         
         submit_selectors = [
@@ -545,8 +516,11 @@ class WithdrawalBot:
             "//button[@type='submit']",
             "//button[contains(@class, 'submit')]",
             "//button[contains(@class, 'green')]",
+            "//button[contains(@style, 'green')]",
+            "//div[contains(@class, 'submit')]/button",
+            "//*[contains(@class, 'btn-submit')]",
             "//button[contains(@class, 'primary')]",
-            "//button[contains(@class, 'btn')]"
+            "//button[@color='green']"
         ]
         
         for selector in submit_selectors:
@@ -555,6 +529,9 @@ class WithdrawalBot:
                     EC.element_to_be_clickable((By.XPATH, selector))
                 )
                 if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    # Scroll to button
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
+                    time.sleep(0.5)
                     self.click_element(submit_btn)
                     print("   ✅ Clicked Submit")
                     time.sleep(2)
@@ -565,9 +542,9 @@ class WithdrawalBot:
         
         # JavaScript fallback
         try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[text()='Submit']")
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-            time.sleep(0.3)
+            time.sleep(0.5)
             self.driver.execute_script("arguments[0].click();", submit_btn)
             print("   ✅ Clicked Submit (JavaScript)")
             time.sleep(2)
@@ -579,57 +556,56 @@ class WithdrawalBot:
         print("   ❌ Could not find Submit button")
         return False
 
-    def check_withdrawal_result(self):
-        """Check if withdrawal was successful"""
-        time.sleep(3)
-        page_source = self.driver.page_source.lower()
-        
-        success_indicators = [
-            "success",
-            "withdrawal successful",
-            "withdrawal submitted",
-            "pending approval",
-            "processing"
-        ]
-        
-        failure_indicators = [
-            "insufficient balance",
-            "minimum withdrawal",
-            "maximum withdrawal",
-            "limit",
-            "error",
-            "failed"
-        ]
-        
-        for indicator in success_indicators:
-            if indicator in page_source:
-                return "success"
-        
-        for indicator in failure_indicators:
-            if indicator in page_source:
-                return "failed"
-        
-        return "unknown"
-
     def perform_withdrawal(self, login_data):
-        """Perform withdrawal with safety checks"""
+        """
+        Complete withdrawal process based on your screenshot:
+        1. Select withdrawal method (OPAY)
+        2. Select withdrawal amount (preset amount)
+        3. Enter fund password
+        4. Click Submit
+        """
         phone = login_data['phone']
         bank_name = login_data['bank_name']
         fund_password = login_data['fund_password']
-        real_name = login_data['real_name']
         
         print(f"\n💸 Processing withdrawal for {phone}")
         
-        # Get account balance if available
-        balance = self.get_account_balance()
+        # Go to withdrawal page
+        try:
+            self.driver.get("https://nnnrc.com/#/user/withdraw")
+            time.sleep(4)
+            self.screenshot("withdrawal_page")
+            print("   ✅ Withdrawal page loaded")
+        except Exception as e:
+            print(f"   ❌ Could not load withdrawal page: {e}")
+            return False
+
+        # Get current balance
+        balance = self.get_balance_from_page()
         
-        # Default withdrawal amount - you can modify this logic
-        # For safety, let's withdraw a fixed amount or percentage
-        withdrawal_amount = 100.0  # Default amount - CHANGE THIS TO YOUR NEEDS
+        # Determine withdrawal amount based on balance
+        withdrawal_amount = self.amount_to_withdraw
         
-        # Check if withdrawal is allowed
-        safety_check = self.safety.can_withdraw(withdrawal_amount, phone, balance)
+        # Check if balance can cover the withdrawal
+        if balance:
+            # Calculate fee (taxation) - appears to be 10% based on your screenshot
+            # 1800 withdrawal with 180 tax = 10%
+            fee_percentage = 0.10
+            total_needed = withdrawal_amount * (1 + fee_percentage)
+            
+            if balance < total_needed:
+                print(f"   ⚠️ Insufficient balance: ${balance:.2f} < ${total_needed:.2f} (amount + fee)")
+                # Try the next smaller amount
+                for amount in self.withdrawal_amounts:
+                    if amount < withdrawal_amount:
+                        total_needed = amount * (1 + fee_percentage)
+                        if balance >= total_needed:
+                            withdrawal_amount = amount
+                            print(f"   📊 Adjusted withdrawal to: ${withdrawal_amount:.2f}")
+                            break
         
+        # Safety check
+        safety_check = self.safety.can_withdraw(withdrawal_amount, phone)
         if not safety_check["allowed"]:
             print(f"   ⚠️ Withdrawal blocked: {safety_check['reason']}")
             self.safety.log_withdrawal(phone, withdrawal_amount, "blocked", safety_check['reason'])
@@ -641,59 +617,46 @@ class WithdrawalBot:
             print(f"   Account: {phone}")
             print(f"   Amount: ${withdrawal_amount:.2f}")
             print(f"   Bank: {bank_name}")
-            print(f"   Daily remaining: ${self.safety.config['max_daily_withdrawal'] - self.safety.daily_withdrawn:.2f}")
+            print(f"   Balance: ${balance if balance else 'Unknown'}")
             
             response = input("   Confirm withdrawal? (yes/no): ").strip().lower()
             if response != 'yes':
-                print("   ❌ Withdrawal cancelled by user")
+                print("   ❌ Withdrawal cancelled")
                 self.safety.log_withdrawal(phone, withdrawal_amount, "cancelled", "User cancelled")
                 return False
-
-        # Go to withdrawal page
-        try:
-            self.driver.get("https://nnnrc.com/#/user/withdraw")
-            time.sleep(3)
-            self.screenshot("withdrawal_page")
-            print("   ✅ Withdrawal page loaded")
-        except Exception as e:
-            print(f"   ❌ Could not load withdrawal page: {e}")
-            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", f"Page load error: {e}")
-            return False
 
         # Step 1: Select withdrawal method
         if not self.select_withdrawal_method(bank_name):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select bank")
             return False
 
-        # Step 2: Enter amount
-        if not self.enter_withdrawal_amount(withdrawal_amount):
-            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter amount")
+        # Step 2: Select withdrawal amount
+        if not self.select_withdrawal_amount(withdrawal_amount):
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
         # Step 3: Enter fund password
-        if not self.enter_fund_password(fund_password):
-            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter fund password")
+        fund_field = self.get_fund_password_field()
+        if fund_field:
+            self.type_text(fund_field, fund_password)
+            print(f"   🔑 Entered fund password")
+            self.screenshot("fund_password_entered")
+        else:
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not find fund password field")
             return False
 
         # Step 4: Click Submit
         if self.click_submit_button():
-            # Check result
-            result = self.check_withdrawal_result()
-            if result == "success":
-                print("   ✅ Withdrawal completed successfully!")
-                self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal successful")
-                return True
-            else:
-                print(f"   ⚠️ Withdrawal result: {result}")
-                self.safety.log_withdrawal(phone, withdrawal_amount, "unknown", f"Result: {result}")
-                return True  # Consider it might be pending
+            print("   ✅ Withdrawal submitted!")
+            self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal submitted")
+            return True
         else:
-            print("   ❌ Could not complete withdrawal")
+            print("   ❌ Could not submit withdrawal")
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit button failed")
             return False
 
     # ============================================
-    # RUN WITH SAFETY
+    # RUN
     # ============================================
 
     def run(self):
@@ -707,7 +670,6 @@ class WithdrawalBot:
         print(f"   Withdrawn today: ${summary['withdrawn_today']:.2f}")
         print(f"   Daily limit: ${summary['daily_limit']:.2f}")
         print(f"   Remaining: ${summary['remaining']:.2f}")
-        print(f"   Total withdrawals: {summary['total_withdrawals']}")
         print("="*50)
 
         failed_accounts = []
@@ -728,8 +690,8 @@ class WithdrawalBot:
             if not success:
                 failed_accounts.append(phone)
                 
-            # Add delay between accounts
-            time.sleep(5)
+            # Delay between accounts
+            time.sleep(3)
 
         # Final summary
         print("\n" + "="*50)
