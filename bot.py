@@ -758,4 +758,66 @@ class WithdrawalBot:
         self.screenshot("withdrawal_complete")
         return True
 
+    # ============================================
+    # RUN METHOD - FIXED INDENTATION
+    # ============================================
+
     def run(self):
+        """Main run method"""
+        print("="*60)
+        print(f"🤖 WITHDRAWAL BOT {self.bot_id} STARTING")
+        print("="*60)
+        
+        # Show daily summary
+        summary = self.safety.get_daily_summary()
+        print(f"\n📊 DAILY SUMMARY")
+        print(f"   Withdrawn today: ${summary['withdrawn_today']:.2f}")
+        print(f"   Daily limit: ${summary['daily_limit']:.2f}")
+        print(f"   Remaining: ${summary['remaining']:.2f}")
+        print("="*60)
+
+        failed_accounts = []
+        
+        for index, login_data in enumerate(self.logins, 1):
+            phone = login_data['phone']
+            password = login_data['password']
+
+            print(f"\n📱 Account {index}/{len(self.logins)}: {phone}")
+
+            if not self.login(phone, password):
+                print(f"   ❌ Login failed for {phone}")
+                failed_accounts.append(phone)
+                continue
+
+            success = self.perform_withdrawal(login_data)
+            
+            if not success:
+                failed_accounts.append(phone)
+            
+            # Delay between accounts
+            if index < len(self.logins):
+                print(f"\n⏳ Waiting 5 seconds before next account...")
+                time.sleep(5)
+
+        # Final summary
+        print("\n" + "="*60)
+        print(f"📊 FINAL SUMMARY")
+        print(f"   Total accounts: {len(self.logins)}")
+        print(f"   Successful: {len(self.logins) - len(failed_accounts)}")
+        print(f"   Failed: {len(failed_accounts)}")
+        
+        summary = self.safety.get_daily_summary()
+        print(f"   Total withdrawn today: ${summary['withdrawn_today']:.2f}")
+        print("="*60)
+
+        self.driver.quit()
+        print(f"\n✅ Withdrawal Bot {self.bot_id} Done!")
+
+# ============================================
+# MAIN EXECUTION - FIXED INDENTATION
+# ============================================
+
+if __name__ == "__main__":
+    bot_id = int(os.environ.get('BOT_ID', 1))
+    bot = WithdrawalBot(bot_id=bot_id)
+    bot.run()
