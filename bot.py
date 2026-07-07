@@ -742,7 +742,7 @@ class WithdrawalBot:
         except Exception as e:
             print(f"   ⚠️ Method 5 failed: {e}")
         
-        # Method 6: Try clicking with JavaScript on the parent
+        # Method 6: Try clicking on the parent
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
             parent = submit_btn.find_element(By.XPATH, "..")
@@ -755,6 +755,23 @@ class WithdrawalBot:
                     return True
         except Exception as e:
             print(f"   ⚠️ Method 6 failed: {e}")
+        
+        # Method 7: Click using coordinates
+        try:
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            location = submit_btn.location
+            size = submit_btn.size
+            x = location['x'] + size['width']/2
+            y = location['y'] + size['height']/2
+            methods_tried.append("Coordinates click")
+            actions = ActionChains(self.driver)
+            actions.move_by_offset(x, y).click().perform()
+            print(f"   ✅ Clicked at coordinates ({x}, {y})")
+            time.sleep(2)
+            if self.verify_submit_worked():
+                return True
+        except Exception as e:
+            print(f"   ⚠️ Method 7 failed: {e}")
         
         print(f"\n   ❌ All methods failed. Methods tried: {', '.join(methods_tried)}")
         return False
@@ -968,4 +985,56 @@ class WithdrawalBot:
 
     # ============================================
     # RUN
-    # ===========================================
+    # ============================================
+
+    def run(self):
+        print("="*60)
+        print(f"🤖 WITHDRAWAL BOT {self.bot_id} STARTING")
+        print("="*60)
+        
+        summary = self.safety.get_daily_summary()
+        print(f"\n📊 DAILY SUMMARY")
+        print(f"   Withdrawn today: ${summary['withdrawn_today']:.2f}")
+        print(f"   Daily limit: ${summary['daily_limit']:.2f}")
+        print(f"   Remaining: ${summary['remaining']:.2f}")
+        print("="*60)
+
+        failed_accounts = []
+        
+        for index, login_data in enumerate(self.logins, 1):
+            phone = login_data['phone']
+            password = login_data['password']
+
+            print(f"\n📱 Account {index}/{len(self.logins)}: {phone}")
+
+            if not self.login(phone, password):
+                print(f"   ❌ Login failed for {phone}")
+                failed_accounts.append(phone)
+                continue
+
+            success = self.perform_withdrawal(login_data)
+            
+            if not success:
+                failed_accounts.append(phone)
+            
+            if index < len(self.logins):
+                print(f"\n⏳ Waiting 5 seconds...")
+                time.sleep(5)
+
+        print("\n" + "="*60)
+        print(f"📊 FINAL SUMMARY")
+        print(f"   Total accounts: {len(self.logins)}")
+        print(f"   Successful: {len(self.logins) - len(failed_accounts)}")
+        print(f"   Failed: {len(failed_accounts)}")
+        
+        summary = self.safety.get_daily_summary()
+        print(f"   Total withdrawn today: ${summary['withdrawn_today']:.2f}")
+        print("="*60)
+
+        self.driver.quit()
+        print(f"\n✅ Withdrawal Bot {self.bot_id} Done!")
+
+if __name__ == "__main__":
+    bot_id = int(os.environ.get('BOT_ID', 1))
+    bot = WithdrawalBot(bot_id=bot_id)
+    bot.run()
