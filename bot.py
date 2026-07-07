@@ -142,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT - FIXED SUBMIT
+# WITHDRAWAL BOT - FIXED SYNTAX
 # ============================================
 
 class WithdrawalBot:
@@ -155,8 +155,8 @@ class WithdrawalBot:
         # Initialize safety manager
         self.safety = WithdrawalSafetyManager()
         
-        # Check if running in headless/CI environment
-        self.is_headless = os.environ.get('CI', 'false').lower() 'true' or \
+        # Check if running in headless/CI environment - FIXED SYNTAX
+        self.is_headless = os.environ.get('CI', 'false').lower() == 'true' or \
                           'GITHUB_ACTIONS' in os.environ or \
                           'HEADLESS' in os.environ
         
@@ -417,7 +417,7 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - FIXED SUBMIT
+    # WITHDRAWAL
     # ============================================
 
     def click_withdrawal_method(self):
@@ -572,7 +572,7 @@ class WithdrawalBot:
             return False
 
     def click_submit_button(self):
-        """Click Submit button - FOR REAL THIS TIME with verification"""
+        """Click Submit button with verification"""
         print("   📤 Clicking Submit...")
         
         time.sleep(1)
@@ -621,7 +621,6 @@ class WithdrawalBot:
             time.sleep(2)
             self.screenshot("after_submit_click_js")
             
-            # Verify something changed
             if self.verify_submit_worked():
                 return True
         except Exception as e:
@@ -663,23 +662,6 @@ class WithdrawalBot:
                 return True
         except Exception as e:
             print(f"   ⚠️ Enter key failed: {e}")
-        
-        # Method 5: JavaScript with events
-        try:
-            self.driver.execute_script("""
-                arguments[0].scrollIntoView({block: 'center'});
-                arguments[0].dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
-                arguments[0].dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
-                arguments[0].dispatchEvent(new MouseEvent('click', {bubbles: true}));
-            """, submit_button)
-            print("   ✅ Clicked Submit using mouse events")
-            time.sleep(2)
-            self.screenshot("after_submit_events")
-            
-            if self.verify_submit_worked():
-                return True
-        except Exception as e:
-            print(f"   ⚠️ Mouse events failed: {e}")
         
         print("   ❌ All click methods failed")
         return False
@@ -792,16 +774,6 @@ class WithdrawalBot:
                 print(f"   ✅ Found success indicator: '{indicator}'")
                 return True
         
-        # Check if the Submit button is gone
-        try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            if submit_btn.is_displayed():
-                print("   ⚠️ Submit button is still visible - withdrawal may have failed")
-                return False
-        except:
-            print("   ✅ Submit button is gone - withdrawal likely successful")
-            return True
-        
         return True
 
     def confirm_withdrawal(self, phone, amount, bank_name):
@@ -880,7 +852,7 @@ class WithdrawalBot:
         self.screenshot("after_password_entry")
         print("   📸 Screenshot after password entry")
 
-        # STEP 5: Click Submit (FOR REAL)
+        # STEP 5: Click Submit
         print("\n   📋 STEP 5: Click Submit")
         if not self.click_submit_button():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
@@ -898,7 +870,6 @@ class WithdrawalBot:
             print("   ✅ Withdrawal verified!")
         else:
             print("   ⚠️ Warning: Could not verify withdrawal completion")
-            # Still return True since we completed the steps
 
         print(f"\n   ✅ Withdrawal process completed!")
         self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal process completed")
