@@ -142,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT - JAVASCRIPT SUBMIT
+# WITHDRAWAL BOT - WITH EXTENSIVE DEBUGGING
 # ============================================
 
 class WithdrawalBot:
@@ -389,8 +389,132 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - JAVASCRIPT SUBMIT
+    # EXTENSIVE DEBUGGING FOR SUBMIT BUTTON
     # ============================================
+
+    def debug_submit_button(self):
+        """Extensive debugging of the Submit button"""
+        print("\n   🔍 EXTENSIVE SUBMIT BUTTON DEBUGGING")
+        print("   " + "="*50)
+        
+        try:
+            # Find all buttons on the page
+            all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            print(f"   Total buttons on page: {len(all_buttons)}")
+            
+            for i, btn in enumerate(all_buttons):
+                try:
+                    text = btn.text.strip()
+                    class_name = btn.get_attribute("class") or ""
+                    id_attr = btn.get_attribute("id") or ""
+                    is_displayed = btn.is_displayed()
+                    is_enabled = btn.is_enabled()
+                    tag_name = btn.tag_name
+                    
+                    # Get CSS properties
+                    display = btn.value_of_css_property("display")
+                    visibility = btn.value_of_css_property("visibility")
+                    opacity = btn.value_of_css_property("opacity")
+                    pointer_events = btn.value_of_css_property("pointer-events")
+                    position = btn.value_of_css_property("position")
+                    z_index = btn.value_of_css_property("z-index")
+                    
+                    print(f"\n   Button {i+1}:")
+                    print(f"      Text: '{text}'")
+                    print(f"      Class: '{class_name}'")
+                    print(f"      ID: '{id_attr}'")
+                    print(f"      Displayed: {is_displayed}")
+                    print(f"      Enabled: {is_enabled}")
+                    print(f"      CSS - display: {display}, visibility: {visibility}, opacity: {opacity}")
+                    print(f"      CSS - pointer-events: {pointer_events}, position: {position}, z-index: {z_index}")
+                    
+                    # Check if it's the Submit button
+                    if "Submit" in text or "submit" in text.lower():
+                        print(f"      *** THIS IS THE SUBMIT BUTTON ***")
+                        # Try to find what's covering it
+                        self.debug_overlay_elements(btn)
+                except Exception as e:
+                    print(f"      Error getting button info: {e}")
+            
+            # Find the Submit button specifically
+            print("\n   🔍 Looking for Submit button specifically...")
+            submit_selectors = [
+                "//button[normalize-space()='Submit']",
+                "//button[contains(text(), 'Submit')]",
+                "//button[contains(@class, 'submit')]",
+                "//button[@type='submit']"
+            ]
+            
+            for selector in submit_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    if elements:
+                        print(f"   Found {len(elements)} with selector: {selector}")
+                        for elem in elements:
+                            print(f"      Displayed: {elem.is_displayed()}, Enabled: {elem.is_enabled()}")
+                except:
+                    pass
+            
+            # Check if there's a form and find its action
+            try:
+                forms = self.driver.find_elements(By.TAG_NAME, "form")
+                print(f"\n   Forms found: {len(forms)}")
+                for i, form in enumerate(forms):
+                    action = form.get_attribute("action") or "No action"
+                    method = form.get_attribute("method") or "No method"
+                    print(f"   Form {i+1}: action='{action}', method='{method}'")
+            except:
+                pass
+            
+            print("   " + "="*50 + "\n")
+            
+        except Exception as e:
+            print(f"   Debug error: {e}")
+
+    def debug_overlay_elements(self, element):
+        """Check what might be covering the element"""
+        try:
+            # Get element position
+            rect = self.driver.execute_script("""
+                var rect = arguments[0].getBoundingClientRect();
+                return {
+                    top: rect.top,
+                    left: rect.left,
+                    bottom: rect.bottom,
+                    right: rect.right,
+                    width: rect.width,
+                    height: rect.height
+                };
+            """, element)
+            
+            print(f"      Element position: top={rect['top']}, left={rect['left']}, width={rect['width']}, height={rect['height']}")
+            
+            # Check for elements that might be covering it
+            js_check = """
+                var rect = arguments[0].getBoundingClientRect();
+                var centerX = rect.left + rect.width/2;
+                var centerY = rect.top + rect.height/2;
+                var topElement = document.elementFromPoint(centerX, centerY);
+                if (topElement) {
+                    return {
+                        tag: topElement.tagName,
+                        text: topElement.textContent,
+                        class: topElement.className,
+                        id: topElement.id,
+                        isButton: topElement.tagName === 'BUTTON'
+                    };
+                }
+                return null;
+            """
+            covering = self.driver.execute_script(js_check, element)
+            if covering:
+                print(f"      Element at center point: {covering}")
+                if covering.get('isButton'):
+                    print(f"      *** The element at center is the Submit button itself! ***")
+                else:
+                    print(f"      *** Something else is covering the Submit button! ***")
+        except:
+            pass
 
     def click_withdrawal_method(self):
         print("   🔘 Clicking 'Withdrawal method'...")
@@ -535,90 +659,104 @@ class WithdrawalBot:
             print(f"   ❌ Error setting fund password: {e}")
             return None
 
-    def submit_with_javascript(self):
-        """Submit the form using pure JavaScript - finds the form and submits it"""
-        print("   📤 Submitting form with JavaScript...")
+    def click_submit_with_debug(self):
+        """Click Submit with extensive debugging"""
+        print("   📤 Attempting to click Submit...")
         
+        # Run extensive debugging first
+        self.debug_submit_button()
+        
+        # Try multiple methods
+        methods_tried = []
+        
+        # Method 1: Find by exact text and click with JavaScript
         try:
-            # Method 1: Find the form and submit it
-            js_script = """
-            // Find the form
-            var forms = document.querySelectorAll('form');
-            for (var i = 0; i < forms.length; i++) {
-                // Check if this form contains the fund password field
-                var inputs = forms[i].querySelectorAll('input[type="password"]');
-                if (inputs.length > 0) {
-                    // This is the withdrawal form
-                    forms[i].submit();
-                    return true;
-                }
-            }
-            return false;
-            """
-            result = self.driver.execute_script(js_script)
-            if result:
-                print("   ✅ Form submitted via JavaScript")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_btn.is_displayed():
+                methods_tried.append("JavaScript click on exact text")
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_btn)
+                time.sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", submit_btn)
+                print("   ✅ Clicked with JavaScript")
                 time.sleep(2)
-                return self.verify_submit_worked()
+                if self.verify_submit_worked():
+                    return True
         except Exception as e:
-            print(f"   ⚠️ Form submission failed: {e}")
+            print(f"   ⚠️ Method 1 failed: {e}")
         
-        # Method 2: Find and click the Submit button using JavaScript with events
+        # Method 2: Click with ActionChains
         try:
-            js_script = """
-            var buttons = document.querySelectorAll('button');
-            for (var i = 0; i < buttons.length; i++) {
-                var text = buttons[i].textContent.trim();
-                if (text === 'Submit' || text.toLowerCase() === 'submit') {
-                    // Trigger click with events
-                    var evt = new MouseEvent('click', {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window
-                    });
-                    buttons[i].dispatchEvent(evt);
-                    return true;
-                }
-            }
-            return false;
-            """
-            result = self.driver.execute_script(js_script)
-            if result:
-                print("   ✅ Submit button clicked via JavaScript events")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_btn.is_displayed():
+                methods_tried.append("ActionChains")
+                actions = ActionChains(self.driver)
+                actions.move_to_element(submit_btn).click().perform()
+                print("   ✅ Clicked with ActionChains")
                 time.sleep(2)
-                return self.verify_submit_worked()
+                if self.verify_submit_worked():
+                    return True
         except Exception as e:
-            print(f"   ⚠️ JavaScript click failed: {e}")
+            print(f"   ⚠️ Method 2 failed: {e}")
         
-        # Method 3: Press Enter with JavaScript
+        # Method 3: Click using JavaScript events
         try:
-            js_script = """
-            var inputs = document.querySelectorAll('input[type="password"]');
-            for (var i = 0; i < inputs.length; i++) {
-                if (inputs[i].offsetParent !== null) {
-                    inputs[i].focus();
-                    var evt = new KeyboardEvent('keydown', {
-                        key: 'Enter',
-                        code: 'Enter',
-                        keyCode: 13,
-                        which: 13,
-                        bubbles: true
-                    });
-                    inputs[i].dispatchEvent(evt);
-                    return true;
-                }
-            }
-            return false;
-            """
-            result = self.driver.execute_script(js_script)
-            if result:
-                print("   ✅ Enter key triggered via JavaScript")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_btn.is_displayed():
+                methods_tried.append("JavaScript events")
+                self.driver.execute_script("""
+                    arguments[0].scrollIntoView({block: 'center'});
+                    arguments[0].dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+                    arguments[0].dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+                    arguments[0].dispatchEvent(new MouseEvent('click', {bubbles: true}));
+                """, submit_btn)
+                print("   ✅ Clicked with JavaScript events")
                 time.sleep(2)
-                return self.verify_submit_worked()
+                if self.verify_submit_worked():
+                    return True
         except Exception as e:
-            print(f"   ⚠️ JavaScript Enter key failed: {e}")
+            print(f"   ⚠️ Method 3 failed: {e}")
         
-        print("   ❌ All JavaScript submission methods failed")
+        # Method 4: Press Enter on the button
+        try:
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_btn.is_displayed():
+                methods_tried.append("Enter key")
+                submit_btn.send_keys(Keys.ENTER)
+                print("   ✅ Pressed Enter on button")
+                time.sleep(2)
+                if self.verify_submit_worked():
+                    return True
+        except Exception as e:
+            print(f"   ⚠️ Method 4 failed: {e}")
+        
+        # Method 5: Submit the form directly
+        try:
+            forms = self.driver.find_elements(By.TAG_NAME, "form")
+            for form in forms:
+                methods_tried.append("form.submit()")
+                self.driver.execute_script("arguments[0].submit();", form)
+                print("   ✅ Submitted form")
+                time.sleep(2)
+                if self.verify_submit_worked():
+                    return True
+        except Exception as e:
+            print(f"   ⚠️ Method 5 failed: {e}")
+        
+        # Method 6: Try clicking with JavaScript on the parent
+        try:
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            parent = submit_btn.find_element(By.XPATH, "..")
+            if parent.is_displayed():
+                methods_tried.append("Parent click")
+                self.driver.execute_script("arguments[0].click();", parent)
+                print("   ✅ Clicked parent element")
+                time.sleep(2)
+                if self.verify_submit_worked():
+                    return True
+        except Exception as e:
+            print(f"   ⚠️ Method 6 failed: {e}")
+        
+        print(f"\n   ❌ All methods failed. Methods tried: {', '.join(methods_tried)}")
         return False
 
     def verify_submit_worked(self):
@@ -756,6 +894,7 @@ class WithdrawalBot:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(4)
             self.screenshot("withdrawal_page")
+            self.save_html("withdrawal_page")
             print("   ✅ Withdrawal page loaded")
         except Exception as e:
             print(f"   ❌ Could not load withdrawal page: {e}")
@@ -798,8 +937,8 @@ class WithdrawalBot:
         self.screenshot("after_password_entry")
         print("   📸 Screenshot after password entry")
 
-        print("\n   📋 STEP 5: Submit form using JavaScript")
-        if not self.submit_with_javascript():
+        print("\n   📋 STEP 5: Submit form with debugging")
+        if not self.click_submit_with_debug():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
             return False
 
@@ -829,56 +968,4 @@ class WithdrawalBot:
 
     # ============================================
     # RUN
-    # ============================================
-
-    def run(self):
-        print("="*60)
-        print(f"🤖 WITHDRAWAL BOT {self.bot_id} STARTING")
-        print("="*60)
-        
-        summary = self.safety.get_daily_summary()
-        print(f"\n📊 DAILY SUMMARY")
-        print(f"   Withdrawn today: ${summary['withdrawn_today']:.2f}")
-        print(f"   Daily limit: ${summary['daily_limit']:.2f}")
-        print(f"   Remaining: ${summary['remaining']:.2f}")
-        print("="*60)
-
-        failed_accounts = []
-        
-        for index, login_data in enumerate(self.logins, 1):
-            phone = login_data['phone']
-            password = login_data['password']
-
-            print(f"\n📱 Account {index}/{len(self.logins)}: {phone}")
-
-            if not self.login(phone, password):
-                print(f"   ❌ Login failed for {phone}")
-                failed_accounts.append(phone)
-                continue
-
-            success = self.perform_withdrawal(login_data)
-            
-            if not success:
-                failed_accounts.append(phone)
-            
-            if index < len(self.logins):
-                print(f"\n⏳ Waiting 5 seconds...")
-                time.sleep(5)
-
-        print("\n" + "="*60)
-        print(f"📊 FINAL SUMMARY")
-        print(f"   Total accounts: {len(self.logins)}")
-        print(f"   Successful: {len(self.logins) - len(failed_accounts)}")
-        print(f"   Failed: {len(failed_accounts)}")
-        
-        summary = self.safety.get_daily_summary()
-        print(f"   Total withdrawn today: ${summary['withdrawn_today']:.2f}")
-        print("="*60)
-
-        self.driver.quit()
-        print(f"\n✅ Withdrawal Bot {self.bot_id} Done!")
-
-if __name__ == "__main__":
-    bot_id = int(os.environ.get('BOT_ID', 1))
-    bot = WithdrawalBot(bot_id=bot_id)
-    bot.run()
+    # ===========================================
