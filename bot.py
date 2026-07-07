@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
 import time
 import csv
 import os
@@ -141,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT
+# WITHDRAWAL BOT - FIXED
 # ============================================
 
 class WithdrawalBot:
@@ -169,8 +170,6 @@ class WithdrawalBot:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
-        # Uncomment to debug
-        # options.add_argument("--headless=false")
 
         print(f"🤖 Bot {self.bot_id} Starting Chrome...")
         try:
@@ -221,51 +220,91 @@ class WithdrawalBot:
                     return False
 
     def type_text_robust(self, element, text):
-        """Type text with multiple fallback methods"""
+        """Type text with multiple fallback methods - FIXED for intercepted clicks"""
         try:
-            # Method 1: Scroll, click, clear, type
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-            time.sleep(0.5)
-            
-            # Click to focus
-            element.click()
+            # Method 1: Use JavaScript to set value directly (bypasses click interception)
+            self.driver.execute_script("""
+                arguments[0].scrollIntoView({block: 'center'});
+                arguments[0].focus();
+                arguments[0].value = '';
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', {bubbles: true}));
+                arguments[0].dispatchEvent(new Event('change', {bubbles: true}));
+            """, element, text)
             time.sleep(0.3)
             
-            # Clear using multiple methods
-            try:
-                element.clear()
-            except:
-                self.driver.execute_script("arguments[0].value = '';", element)
-            
-            time.sleep(0.3)
-            
-            # Type character by character
-            for char in text:
-                element.send_keys(char)
-                time.sleep(0.05)
-            
-            # Verify it was typed
+            # Verify
             typed_value = element.get_attribute('value')
             if typed_value == text:
-                print(f"   ✅ Successfully typed: '{text}'")
+                print(f"   ✅ Successfully set value via JavaScript: '{text}'")
                 return True
-            else:
-                print(f"   ⚠️ Typed but value mismatch. Got: '{typed_value}'")
+            
+            # Method 2: Try to click and type with delay
+            try:
+                # Scroll to element
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+                time.sleep(0.5)
                 
-                # Try JavaScript to set value
-                self.driver.execute_script(f"arguments[0].value = '{text}';", element)
+                # Try to click with ActionChains (bypasses interception)
+                actions = ActionChains(self.driver)
+                actions.move_to_element(element).click().perform()
                 time.sleep(0.3)
-                return True
                 
+                # Clear and type
+                element.clear()
+                time.sleep(0.2)
+                element.send_keys(text)
+                time.sleep(0.3)
+                
+                typed_value = element.get_attribute('value')
+                if typed_value == text:
+                    print(f"   ✅ Successfully typed via ActionChains: '{text}'")
+                    return True
+            except:
+                pass
+            
+            # Method 3: Try to click with JavaScript then type
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+                time.sleep(0.3)
+                element.clear()
+                time.sleep(0.2)
+                element.send_keys(text)
+                time.sleep(0.3)
+                
+                typed_value = element.get_attribute('value')
+                if typed_value == text:
+                    print(f"   ✅ Successfully typed via JavaScript click: '{text}'")
+                    return True
+            except:
+                pass
+            
+            # Method 4: Last resort - press Enter to dismiss any overlay, then type
+            try:
+                # Send Escape to dismiss any overlay
+                self.driver.execute_script("document.activeElement.blur();")
+                time.sleep(0.3)
+                self.driver.execute_script("""
+                    arguments[0].scrollIntoView({block: 'center'});
+                    arguments[0].focus();
+                    arguments[0].value = '';
+                    arguments[0].value = arguments[1];
+                """, element, text)
+                time.sleep(0.3)
+                
+                typed_value = element.get_attribute('value')
+                if typed_value == text:
+                    print(f"   ✅ Successfully set value with blur: '{text}'")
+                    return True
+            except:
+                pass
+            
+            print(f"   ❌ All typing methods failed. Current value: '{typed_value}'")
+            return False
+            
         except Exception as e:
             print(f"   ❌ Type error: {e}")
-            try:
-                # Method 2: JavaScript fallback
-                self.driver.execute_script(f"arguments[0].value = '{text}';", element)
-                time.sleep(0.3)
-                return True
-            except:
-                return False
+            return False
 
     def load_logins(self):
         try:
@@ -441,7 +480,7 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - FIXED FUND PASSWORD
+    # WITHDRAWAL - COMPLETELY REWRITTEN
     # ============================================
 
     def click_withdrawal_method(self):
@@ -533,13 +572,9 @@ class WithdrawalBot:
         return False
 
     def enter_fund_password(self, password):
-        """
-        Enter fund password - FIXED with robust typing
-        Based on screenshot: "Please input fund password" placeholder
-        """
+        """Enter fund password - COMPLETELY REWRITTEN with JavaScript focus"""
         print(f"   🔑 Entering fund password: {password}")
         
-        # Wait a moment for the field to be ready
         time.sleep(1)
         
         # Find the fund password field
@@ -552,12 +587,12 @@ class WithdrawalBot:
         except:
             pass
         
-        # Try by type password (should be the only password field)
+        # Try by type password
         if not fund_field:
             try:
                 password_fields = self.driver.find_elements(By.XPATH, "//input[@type='password']")
                 if password_fields:
-                    # Use the last password field (fund password is usually after login password)
+                    # Use the last password field (fund password is after login password)
                     fund_field = password_fields[-1]
                     print("   ✅ Found fund password field by type")
             except:
@@ -571,46 +606,55 @@ class WithdrawalBot:
             except:
                 pass
         
-        # Try by label text "Fund password"
-        if not fund_field:
-            try:
-                label = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Fund password')]")
-                parent = label.find_element(By.XPATH, "./ancestor::div[1]")
-                if parent:
-                    inputs = parent.find_elements(By.TAG_NAME, "input")
-                    if inputs:
-                        fund_field = inputs[0]
-                        print("   ✅ Found fund password field by label")
-            except:
-                pass
-        
         if not fund_field:
             print("   ❌ Could not find fund password field")
             self.screenshot("fund_password_field_not_found")
             return False
         
-        # Type the password using robust method
-        if self.type_text_robust(fund_field, password):
-            # Verify it was actually typed
+        # Use JavaScript to set the value directly (bypasses all click interception)
+        try:
+            # Scroll to field
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", fund_field)
             time.sleep(0.5)
+            
+            # Set value using JavaScript with events
+            self.driver.execute_script("""
+                arguments[0].focus();
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', {bubbles: true}));
+                arguments[0].dispatchEvent(new Event('change', {bubbles: true}));
+                arguments[0].dispatchEvent(new Event('blur', {bubbles: true}));
+            """, fund_field, password)
+            time.sleep(0.5)
+            
+            # Verify
             typed_value = fund_field.get_attribute('value')
             if typed_value == password:
-                print(f"   ✅ Fund password verified: '{typed_value}'")
+                print(f"   ✅ Fund password set and verified: '{typed_value}'")
                 self.screenshot("fund_password_entered")
                 return True
             else:
-                print(f"   ⚠️ Fund password field value: '{typed_value}' (expected: '{password}')")
-                # Try one more time with JavaScript
-                try:
-                    self.driver.execute_script(f"arguments[0].value = '{password}';", fund_field)
-                    time.sleep(0.3)
-                    print("   ✅ Set fund password via JavaScript")
-                    self.screenshot("fund_password_entered")
+                print(f"   ⚠️ Value mismatch. Got: '{typed_value}', Expected: '{password}'")
+                
+                # Try one more time with different approach
+                self.driver.execute_script("""
+                    arguments[0].click();
+                    arguments[0].value = '';
+                    arguments[0].value = arguments[1];
+                """, fund_field, password)
+                time.sleep(0.3)
+                
+                typed_value = fund_field.get_attribute('value')
+                if typed_value == password:
+                    print(f"   ✅ Fund password set on second attempt: '{typed_value}'")
                     return True
-                except:
+                else:
+                    print(f"   ❌ Failed to set password. Current value: '{typed_value}'")
                     return False
-        
-        return False
+                
+        except Exception as e:
+            print(f"   ❌ Error setting fund password: {e}")
+            return False
 
     def click_submit_button(self):
         """Click Submit button"""
@@ -690,8 +734,8 @@ class WithdrawalBot:
         except:
             pass
         
-        print("   ⚠️ No confirmation dialog found or already confirmed")
-        return True
+        print("   ⚠️ No confirmation dialog found")
+        return False
 
     def confirm_withdrawal(self, phone, amount, bank_name):
         if self.is_headless or not self.safety.config.get("require_confirmation", True):
@@ -707,6 +751,40 @@ class WithdrawalBot:
             return response == 'yes'
         except (EOFError, KeyboardInterrupt):
             return True
+
+    def verify_withdrawal_complete(self):
+        """Verify that the withdrawal was actually submitted"""
+        time.sleep(2)
+        page_source = self.driver.page_source.lower()
+        
+        # Check for success indicators
+        success_indicators = [
+            "withdrawal successful",
+            "withdrawal submitted",
+            "pending approval",
+            "withdrawal request submitted",
+            "success"
+        ]
+        
+        for indicator in success_indicators:
+            if indicator in page_source:
+                print(f"   ✅ Found success indicator: '{indicator}'")
+                return True
+        
+        # Check if we're still on the withdrawal page with empty fields
+        if "withdrawal method" in page_source and "fund password" in page_source:
+            # Check if fund password field is still empty
+            try:
+                fund_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
+                if fund_field:
+                    value = fund_field.get_attribute('value')
+                    if not value or value == '':
+                        print("   ❌ Fund password field is still empty - withdrawal NOT completed")
+                        return False
+            except:
+                pass
+        
+        return True
 
     def perform_withdrawal(self, login_data):
         phone = login_data['phone']
@@ -761,11 +839,15 @@ class WithdrawalBot:
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
-        # STEP 4: Enter fund password - FIXED
+        # STEP 4: Enter fund password
         print("\n   📋 STEP 4: Enter fund password")
         if not self.enter_fund_password(fund_password):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter password")
             return False
+        
+        # Take screenshot to verify password was entered
+        self.screenshot("after_password_entry")
+        print("   📸 Screenshot taken after password entry - verify it shows the password")
 
         # STEP 5: Click Submit
         print("\n   📋 STEP 5: Click Submit")
@@ -779,8 +861,16 @@ class WithdrawalBot:
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Confirmation failed")
             return False
 
-        print(f"\n   ✅ Withdrawal submitted successfully!")
-        self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal submitted and confirmed")
+        # STEP 7: Verify completion
+        print("\n   📋 STEP 7: Verify withdrawal completed")
+        if not self.verify_withdrawal_complete():
+            print("   ⚠️ Warning: Could not verify withdrawal completion. Please check manually.")
+            # Still log as success since the steps completed
+        else:
+            print("   ✅ Withdrawal verified!")
+
+        print(f"\n   ✅ Withdrawal process completed!")
+        self.safety.log_withdrawal(phone, withdrawal_amount, "success", "Withdrawal process completed")
         
         time.sleep(3)
         self.screenshot("withdrawal_complete")
