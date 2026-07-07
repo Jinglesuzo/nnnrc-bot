@@ -190,14 +190,13 @@ class WithdrawalBot:
             return False
 
     # ============================================
-    # WITHDRAWAL - FULL PROCESS
+    # WITHDRAWAL
     # ============================================
 
     def select_withdrawal_method(self, bank_name):
         """Select the bank for withdrawal"""
         print(f"   🔘 Looking for withdrawal method field...")
         
-        # Click the withdrawal method field
         method_selectors = [
             "//*[contains(text(), 'Select withdrawal method')]",
             "//*[contains(text(), 'Withdrawal method')]",
@@ -285,47 +284,110 @@ class WithdrawalBot:
             return False
 
     def click_submit_button(self):
-        """Click the green Submit button"""
-        print("   🔘 Clicking Submit button...")
+        """Click the green Submit button - FULL DEBUG"""
+        print("   🔘 Looking for Submit button...")
         
-        submit_selectors = [
-            "//button[text()='Submit']",
-            "//button[contains(text(), 'Submit')]",
-            "//button[@type='submit']",
-            "//button[contains(@class, 'submit')]",
-            "//button[contains(@class, 'green')]",
-            "//button[contains(@class, 'primary')]",
-            "//button[contains(@class, 'btn')]"
-        ]
+        # Save HTML to see what buttons exist
+        self.save_html("before_submit")
         
-        for selector in submit_selectors:
+        # Method 1: Find ALL buttons on the page
+        try:
+            all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            print(f"   🔍 Found {len(all_buttons)} buttons on page")
+            for i, btn in enumerate(all_buttons):
+                try:
+                    text = btn.text
+                    print(f"      Button {i+1}: '{text}'")
+                    if btn.is_displayed() and btn.is_enabled():
+                        if 'submit' in text.lower() or 'confirm' in text.lower() or 'withdraw' in text.lower():
+                            self.click_element(btn)
+                            print(f"   ✅ Clicked button: '{text}'")
+                            time.sleep(2)
+                            self.screenshot("submit_clicked")
+                            return True
+                except:
+                    continue
+        except:
+            pass
+        
+        # Method 2: By text
+        submit_texts = ["Submit", "submit", "Confirm", "confirm", "Withdraw", "withdraw", "Pay", "pay", "Send", "send"]
+        for text in submit_texts:
             try:
-                submit_btn = WebDriverWait(self.driver, 5).until(
-                    EC.element_to_be_clickable((By.XPATH, selector))
-                )
+                submit_btn = self.driver.find_element(By.XPATH, f"//button[text()='{text}']")
                 if submit_btn.is_displayed() and submit_btn.is_enabled():
                     self.click_element(submit_btn)
-                    print("   ✅ Clicked Submit")
+                    print(f"   ✅ Clicked Submit (by text: '{text}')")
                     time.sleep(2)
                     self.screenshot("submit_clicked")
                     return True
             except:
-                continue
+                pass
         
-        # JavaScript fallback
+        # Method 3: By contains text
+        for text in submit_texts:
+            try:
+                submit_btn = self.driver.find_element(By.XPATH, f"//button[contains(text(), '{text}')]")
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    print(f"   ✅ Clicked Submit (by contains: '{text}')")
+                    time.sleep(2)
+                    self.screenshot("submit_clicked")
+                    return True
+            except:
+                pass
+        
+        # Method 4: By type="submit"
         try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_btn)
-            time.sleep(0.3)
-            self.driver.execute_script("arguments[0].click();", submit_btn)
-            print("   ✅ Clicked Submit (JavaScript)")
-            time.sleep(2)
-            self.screenshot("submit_clicked")
-            return True
+            submit_btn = self.driver.find_element(By.XPATH, "//button[@type='submit']")
+            if submit_btn.is_displayed() and submit_btn.is_enabled():
+                self.click_element(submit_btn)
+                print("   ✅ Clicked Submit (by type)")
+                time.sleep(2)
+                self.screenshot("submit_clicked")
+                return True
+        except:
+            pass
+        
+        # Method 5: By CSS class
+        classes = ["submit", "green", "primary", "btn", "btn-primary", "btn-success"]
+        for cls in classes:
+            try:
+                submit_btn = self.driver.find_element(By.CSS_SELECTOR, f"button[class*='{cls}']")
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    self.click_element(submit_btn)
+                    print(f"   ✅ Clicked Submit (by class: '{cls}')")
+                    time.sleep(2)
+                    self.screenshot("submit_clicked")
+                    return True
+            except:
+                pass
+        
+        # Method 6: JavaScript click on any visible button with submit text
+        try:
+            js_script = """
+            var buttons = document.querySelectorAll('button');
+            for (var i = 0; i < buttons.length; i++) {
+                var text = buttons[i].textContent.toLowerCase();
+                if (text.includes('submit') || text.includes('confirm') || text.includes('withdraw')) {
+                    buttons[i].scrollIntoView({block: 'center'});
+                    buttons[i].click();
+                    return true;
+                }
+            }
+            return false;
+            """
+            result = self.driver.execute_script(js_script)
+            if result:
+                print("   ✅ Clicked Submit (JavaScript scan)")
+                time.sleep(2)
+                self.screenshot("submit_clicked")
+                return True
         except:
             pass
         
         print("   ❌ Could not find Submit button")
+        self.screenshot("submit_not_found")
         return False
 
     def perform_withdrawal(self, login_data):
