@@ -142,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT - NO LIES
+# WITHDRAWAL BOT - ENTER KEY METHOD
 # ============================================
 
 class WithdrawalBot:
@@ -393,7 +393,7 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - HONEST VERSION
+    # WITHDRAWAL - ENTER KEY METHOD
     # ============================================
 
     def click_withdrawal_method(self):
@@ -485,7 +485,7 @@ class WithdrawalBot:
         return False
 
     def enter_fund_password(self, password):
-        """Enter fund password"""
+        """Enter fund password and keep reference to field for Enter key"""
         print(f"   🔑 Entering fund password: {password}")
         
         time.sleep(1)
@@ -520,7 +520,7 @@ class WithdrawalBot:
         if not fund_field:
             print("   ❌ Could not find fund password field")
             self.screenshot("fund_password_field_not_found")
-            return False
+            return None
         
         # Set value using JavaScript
         try:
@@ -538,179 +538,111 @@ class WithdrawalBot:
             if typed_value == password:
                 print(f"   ✅ Fund password verified: '{typed_value}'")
                 self.screenshot("fund_password_entered")
-                return True
+                return fund_field
             else:
                 print(f"   ⚠️ Value mismatch. Got: '{typed_value}'")
-                return False
+                return None
                 
         except Exception as e:
             print(f"   ❌ Error setting fund password: {e}")
+            return None
+
+    def submit_with_enter_key(self, fund_field):
+        """Submit the form using Enter key on the fund password field"""
+        print("   📤 Pressing Enter on fund password field...")
+        
+        if not fund_field:
+            print("   ❌ No fund password field provided")
+            return False
+        
+        try:
+            # Scroll to field
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", fund_field)
+            time.sleep(0.5)
+            
+            # Click to focus
+            fund_field.click()
+            time.sleep(0.5)
+            
+            # Press Enter key
+            fund_field.send_keys(Keys.ENTER)
+            print("   ✅ Pressed Enter key")
+            time.sleep(2)
+            
+            # Check if Submit button disappeared or dialog appeared
+            return self.verify_submit_worked()
+            
+        except Exception as e:
+            print(f"   ❌ Enter key failed: {e}")
             return False
 
-    def click_submit_button(self):
-        """Click Submit button - FOR REAL with honest verification"""
-        print("   📤 Clicking Submit...")
-        
+    def verify_submit_worked(self):
+        """Verify that the submit worked"""
         time.sleep(1)
         
-        # Find the Submit button
-        submit_button = None
-        
-        # Try by exact text
+        # Check if the confirmation dialog appeared
         try:
-            submit_button = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            print("   ✅ Found Submit button by exact text")
+            dialog = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Confirm') or contains(text(), 'Cancel')]")
+            if dialog.is_displayed():
+                print("   ✅ Confirmation dialog detected!")
+                return True
         except:
             pass
         
-        # Try by contains text
-        if not submit_button:
-            try:
-                submit_button = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
-                print("   ✅ Found Submit button by contains text")
-            except:
-                pass
-        
-        # Try by class
-        if not submit_button:
-            try:
-                submit_button = self.driver.find_element(By.XPATH, "//button[contains(@class, 'submit') or contains(@class, 'primary')]")
-                print("   ✅ Found Submit button by class")
-            except:
-                pass
-        
-        if not submit_button:
-            print("   ❌ Could not find Submit button")
-            return False
-        
-        # Check if Submit button is still visible
-        if not submit_button.is_displayed():
-            print("   ⚠️ Submit button is not visible - might already be clicked")
-            return True
-        
-        # Scroll to button
-        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_button)
-        time.sleep(0.5)
-        
-        # Take screenshot before clicking
-        self.screenshot("before_submit_click")
-        
-        # Try multiple click methods
-        click_success = False
-        
-        # Method 1: JavaScript click
+        # Check if the Submit button disappeared
         try:
-            self.driver.execute_script("arguments[0].click();", submit_button)
-            print("   ✅ Clicked Submit using JavaScript")
-            time.sleep(2)
-            click_success = True
-        except Exception as e:
-            print(f"   ⚠️ JavaScript click failed: {e}")
-        
-        # Method 2: Regular click (if JS failed)
-        if not click_success:
-            try:
-                submit_button.click()
-                print("   ✅ Clicked Submit using regular click")
-                time.sleep(2)
-                click_success = True
-            except Exception as e:
-                print(f"   ⚠️ Regular click failed: {e}")
-        
-        # Method 3: ActionChains (if regular failed)
-        if not click_success:
-            try:
-                actions = ActionChains(self.driver)
-                actions.move_to_element(submit_button).click().perform()
-                print("   ✅ Clicked Submit using ActionChains")
-                time.sleep(2)
-                click_success = True
-            except Exception as e:
-                print(f"   ⚠️ ActionChains click failed: {e}")
-        
-        if not click_success:
-            print("   ❌ All click methods failed")
-            return False
-        
-        # HONEST VERIFICATION - Check if Submit button disappeared
-        time.sleep(1)
-        
-        # Check if Submit button is still there
-        try:
-            # Try to find the Submit button again
-            check_button = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if check_button.is_displayed():
-                print("   ❌ Submit button is STILL visible - click did NOT work!")
-                # Try clicking again with different approach
-                try:
-                    self.driver.execute_script("""
-                        arguments[0].dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
-                        arguments[0].dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
-                        arguments[0].dispatchEvent(new MouseEvent('click', {bubbles: true}));
-                    """, check_button)
-                    print("   🔄 Tried click with mouse events")
-                    time.sleep(1)
-                except:
-                    pass
-                
-                # Check one more time
-                try:
-                    final_check = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-                    if final_check.is_displayed():
-                        print("   ❌ Submit button STILL visible after second attempt!")
-                        self.screenshot("submit_still_visible")
-                        return False
-                except:
-                    print("   ✅ Submit button is gone - click worked on second attempt!")
-                    return True
-            else:
-                print("   ✅ Submit button is gone - click worked!")
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if not submit_btn.is_displayed():
+                print("   ✅ Submit button disappeared!")
                 return True
         except:
-            # Button not found - it disappeared!
-            print("   ✅ Submit button is gone - click worked!")
+            print("   ✅ Submit button not found!")
             return True
+        
+        # Check if page changed
+        current_url = self.driver.current_url
+        if "withdraw" not in current_url:
+            print(f"   ✅ Page changed to: {current_url}")
+            return True
+        
+        print("   ❌ Submit did not work - button still visible")
+        return False
 
     def handle_confirmation_dialog(self):
-        """Handle the confirmation dialog - only if it actually appears"""
-        print("   🔘 Checking for confirmation dialog...")
+        """Handle the confirmation dialog"""
+        print("   🔘 Handling confirmation dialog...")
         
         time.sleep(2)
         
         # Check if dialog appeared
         dialog_found = False
         
-        # Check for Confirm button
         try:
             confirm_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Confirm']")
             if confirm_btn.is_displayed():
                 dialog_found = True
-                print("   ✅ Confirmation dialog found (Confirm button visible)")
+                print("   ✅ Confirmation dialog found")
         except:
             pass
         
-        # Check for Cancel button
         if not dialog_found:
             try:
                 cancel_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Cancel']")
                 if cancel_btn.is_displayed():
                     dialog_found = True
-                    print("   ✅ Confirmation dialog found (Cancel button visible)")
+                    print("   ✅ Confirmation dialog found")
             except:
                 pass
         
         if not dialog_found:
-            print("   ⚠️ No confirmation dialog found - Submit may not have worked")
+            print("   ⚠️ No confirmation dialog found")
             return False
         
-        # Find and click Confirm button
-        confirm_clicked = False
-        
+        # Click Confirm
         confirm_selectors = [
             "//button[normalize-space()='Confirm']",
             "//button[contains(text(), 'Confirm')]",
-            "//button[contains(@class, 'confirm')]",
-            "//button[contains(@class, 'primary') and contains(text(), 'Confirm')]"
+            "//button[contains(@class, 'confirm')]"
         ]
         
         for selector in confirm_selectors:
@@ -722,25 +654,20 @@ class WithdrawalBot:
                     self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", confirm_btn)
                     time.sleep(0.5)
                     self.driver.execute_script("arguments[0].click();", confirm_btn)
-                    print("   ✅ Clicked Confirm in dialog")
+                    print("   ✅ Clicked Confirm")
                     self.screenshot("confirmation_clicked")
-                    confirm_clicked = True
                     time.sleep(2)
-                    break
+                    return True
             except:
                 continue
         
-        if not confirm_clicked:
-            print("   ❌ Could not click Confirm button")
-            return False
-        
-        return True
+        print("   ❌ Could not click Confirm")
+        return False
 
     def verify_withdrawal_complete(self):
-        """Verify withdrawal completed - honest check"""
+        """Verify withdrawal completed"""
         time.sleep(2)
         
-        # Check for success messages
         page_source = self.driver.page_source.lower()
         success_indicators = [
             "withdrawal successful",
@@ -754,17 +681,16 @@ class WithdrawalBot:
                 print(f"   ✅ Found success indicator: '{indicator}'")
                 return True
         
-        # Check if the Submit button is gone
+        # Check if Submit button is gone
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
             if submit_btn.is_displayed():
-                print("   ❌ Submit button is STILL visible - withdrawal NOT completed!")
+                print("   ❌ Submit button still visible!")
                 return False
         except:
-            print("   ✅ Submit button is gone - withdrawal likely completed")
+            print("   ✅ Submit button is gone")
             return True
         
-        print("   ⚠️ Could not verify withdrawal completion")
         return False
 
     def confirm_withdrawal(self, phone, amount, bank_name):
@@ -834,25 +760,29 @@ class WithdrawalBot:
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
-        # STEP 4: Enter fund password
+        # STEP 4: Enter fund password and get field reference
         print("\n   📋 STEP 4: Enter fund password")
-        if not self.enter_fund_password(fund_password):
+        fund_field = self.enter_fund_password(fund_password)
+        if not fund_field:
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not enter password")
             return False
         
         self.screenshot("after_password_entry")
         print("   📸 Screenshot after password entry")
 
-        # STEP 5: Click Submit - FOR REAL
-        print("\n   📋 STEP 5: Click Submit")
-        if not self.click_submit_button():
-            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
-            return False
+        # STEP 5: Submit using Enter key
+        print("\n   📋 STEP 5: Submit form")
+        if not self.submit_with_enter_key(fund_field):
+            # Try clicking Submit as fallback
+            print("   🔄 Enter key failed, trying Submit button click...")
+            if not self.click_submit_button_fallback():
+                self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
+                return False
 
         # STEP 6: Handle confirmation dialog
         print("\n   📋 STEP 6: Handle confirmation")
         if not self.handle_confirmation_dialog():
-            print("   ⚠️ No confirmation dialog - withdrawal may not have completed")
+            print("   ⚠️ No confirmation dialog")
             # Check if withdrawal actually completed
             if self.verify_withdrawal_complete():
                 print("   ✅ Withdrawal completed despite no dialog")
@@ -875,6 +805,26 @@ class WithdrawalBot:
         time.sleep(3)
         self.screenshot("withdrawal_complete")
         return True
+
+    def click_submit_button_fallback(self):
+        """Fallback method to click Submit button"""
+        print("   📤 Clicking Submit (fallback)...")
+        
+        time.sleep(1)
+        
+        try:
+            submit_button = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_button.is_displayed():
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_button)
+                time.sleep(0.5)
+                self.driver.execute_script("arguments[0].click();", submit_button)
+                print("   ✅ Clicked Submit")
+                time.sleep(2)
+                return self.verify_submit_worked()
+        except:
+            pass
+        
+        return False
 
     # ============================================
     # RUN
