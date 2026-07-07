@@ -142,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT - WITH EXTENSIVE DEBUGGING
+# WITHDRAWAL BOT - FIXED FOR VAN-PICKER OVERLAY
 # ============================================
 
 class WithdrawalBot:
@@ -389,132 +389,8 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # EXTENSIVE DEBUGGING FOR SUBMIT BUTTON
+    # WITHDRAWAL - FIXED FOR VAN-PICKER OVERLAY
     # ============================================
-
-    def debug_submit_button(self):
-        """Extensive debugging of the Submit button"""
-        print("\n   🔍 EXTENSIVE SUBMIT BUTTON DEBUGGING")
-        print("   " + "="*50)
-        
-        try:
-            # Find all buttons on the page
-            all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
-            print(f"   Total buttons on page: {len(all_buttons)}")
-            
-            for i, btn in enumerate(all_buttons):
-                try:
-                    text = btn.text.strip()
-                    class_name = btn.get_attribute("class") or ""
-                    id_attr = btn.get_attribute("id") or ""
-                    is_displayed = btn.is_displayed()
-                    is_enabled = btn.is_enabled()
-                    tag_name = btn.tag_name
-                    
-                    # Get CSS properties
-                    display = btn.value_of_css_property("display")
-                    visibility = btn.value_of_css_property("visibility")
-                    opacity = btn.value_of_css_property("opacity")
-                    pointer_events = btn.value_of_css_property("pointer-events")
-                    position = btn.value_of_css_property("position")
-                    z_index = btn.value_of_css_property("z-index")
-                    
-                    print(f"\n   Button {i+1}:")
-                    print(f"      Text: '{text}'")
-                    print(f"      Class: '{class_name}'")
-                    print(f"      ID: '{id_attr}'")
-                    print(f"      Displayed: {is_displayed}")
-                    print(f"      Enabled: {is_enabled}")
-                    print(f"      CSS - display: {display}, visibility: {visibility}, opacity: {opacity}")
-                    print(f"      CSS - pointer-events: {pointer_events}, position: {position}, z-index: {z_index}")
-                    
-                    # Check if it's the Submit button
-                    if "Submit" in text or "submit" in text.lower():
-                        print(f"      *** THIS IS THE SUBMIT BUTTON ***")
-                        # Try to find what's covering it
-                        self.debug_overlay_elements(btn)
-                except Exception as e:
-                    print(f"      Error getting button info: {e}")
-            
-            # Find the Submit button specifically
-            print("\n   🔍 Looking for Submit button specifically...")
-            submit_selectors = [
-                "//button[normalize-space()='Submit']",
-                "//button[contains(text(), 'Submit')]",
-                "//button[contains(@class, 'submit')]",
-                "//button[@type='submit']"
-            ]
-            
-            for selector in submit_selectors:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    if elements:
-                        print(f"   Found {len(elements)} with selector: {selector}")
-                        for elem in elements:
-                            print(f"      Displayed: {elem.is_displayed()}, Enabled: {elem.is_enabled()}")
-                except:
-                    pass
-            
-            # Check if there's a form and find its action
-            try:
-                forms = self.driver.find_elements(By.TAG_NAME, "form")
-                print(f"\n   Forms found: {len(forms)}")
-                for i, form in enumerate(forms):
-                    action = form.get_attribute("action") or "No action"
-                    method = form.get_attribute("method") or "No method"
-                    print(f"   Form {i+1}: action='{action}', method='{method}'")
-            except:
-                pass
-            
-            print("   " + "="*50 + "\n")
-            
-        except Exception as e:
-            print(f"   Debug error: {e}")
-
-    def debug_overlay_elements(self, element):
-        """Check what might be covering the element"""
-        try:
-            # Get element position
-            rect = self.driver.execute_script("""
-                var rect = arguments[0].getBoundingClientRect();
-                return {
-                    top: rect.top,
-                    left: rect.left,
-                    bottom: rect.bottom,
-                    right: rect.right,
-                    width: rect.width,
-                    height: rect.height
-                };
-            """, element)
-            
-            print(f"      Element position: top={rect['top']}, left={rect['left']}, width={rect['width']}, height={rect['height']}")
-            
-            # Check for elements that might be covering it
-            js_check = """
-                var rect = arguments[0].getBoundingClientRect();
-                var centerX = rect.left + rect.width/2;
-                var centerY = rect.top + rect.height/2;
-                var topElement = document.elementFromPoint(centerX, centerY);
-                if (topElement) {
-                    return {
-                        tag: topElement.tagName,
-                        text: topElement.textContent,
-                        class: topElement.className,
-                        id: topElement.id,
-                        isButton: topElement.tagName === 'BUTTON'
-                    };
-                }
-                return null;
-            """
-            covering = self.driver.execute_script(js_check, element)
-            if covering:
-                print(f"      Element at center point: {covering}")
-                if covering.get('isButton'):
-                    print(f"      *** The element at center is the Submit button itself! ***")
-                else:
-                    print(f"      *** Something else is covering the Submit button! ***")
-        except:
-            pass
 
     def click_withdrawal_method(self):
         print("   🔘 Clicking 'Withdrawal method'...")
@@ -659,121 +535,109 @@ class WithdrawalBot:
             print(f"   ❌ Error setting fund password: {e}")
             return None
 
-    def click_submit_with_debug(self):
-        """Click Submit with extensive debugging"""
-        print("   📤 Attempting to click Submit...")
+    def click_submit_button(self):
+        """
+        Click Submit button - handles the van-picker overlay issue
+        The overlay (van-picker__toolbar) covers the Submit button
+        We need to click the button directly using JavaScript
+        """
+        print("   📤 Clicking Submit (bypassing overlay)...")
         
-        # Run extensive debugging first
-        self.debug_submit_button()
+        time.sleep(1)
         
-        # Try multiple methods
-        methods_tried = []
-        
-        # Method 1: Find by exact text and click with JavaScript
+        # First, try to close any picker overlay
         try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if submit_btn.is_displayed():
-                methods_tried.append("JavaScript click on exact text")
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_btn)
-                time.sleep(0.5)
-                self.driver.execute_script("arguments[0].click();", submit_btn)
-                print("   ✅ Clicked with JavaScript")
-                time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 1 failed: {e}")
-        
-        # Method 2: Click with ActionChains
-        try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if submit_btn.is_displayed():
-                methods_tried.append("ActionChains")
-                actions = ActionChains(self.driver)
-                actions.move_to_element(submit_btn).click().perform()
-                print("   ✅ Clicked with ActionChains")
-                time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 2 failed: {e}")
-        
-        # Method 3: Click using JavaScript events
-        try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if submit_btn.is_displayed():
-                methods_tried.append("JavaScript events")
+            # Check if there's a picker overlay
+            picker = self.driver.find_element(By.XPATH, "//div[contains(@class, 'van-picker')]")
+            if picker.is_displayed():
+                print("   🔄 Found picker overlay - trying to close it...")
+                
+                # Try clicking outside the picker to close it
                 self.driver.execute_script("""
-                    arguments[0].scrollIntoView({block: 'center'});
-                    arguments[0].dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
-                    arguments[0].dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
-                    arguments[0].dispatchEvent(new MouseEvent('click', {bubbles: true}));
-                """, submit_btn)
-                print("   ✅ Clicked with JavaScript events")
-                time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 3 failed: {e}")
+                    var picker = document.querySelector('.van-picker');
+                    if (picker) {
+                        // Try to find a close/confirm button in the toolbar
+                        var toolbar = picker.querySelector('.van-picker__toolbar');
+                        if (toolbar) {
+                            var confirmBtn = toolbar.querySelector('.van-picker__confirm');
+                            if (confirmBtn) {
+                                confirmBtn.click();
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                """)
+                print("   ✅ Clicked confirm in picker toolbar")
+                time.sleep(1)
+        except:
+            pass
         
-        # Method 4: Press Enter on the button
+        # Try to find and click Submit button using JavaScript
         try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if submit_btn.is_displayed():
-                methods_tried.append("Enter key")
-                submit_btn.send_keys(Keys.ENTER)
-                print("   ✅ Pressed Enter on button")
+            # Use JavaScript to find and click the Submit button directly
+            # This bypasses the overlay
+            js_script = """
+            var buttons = document.querySelectorAll('button');
+            for (var i = 0; i < buttons.length; i++) {
+                var text = buttons[i].textContent.trim();
+                if (text === 'Submit' || text.toLowerCase() === 'submit') {
+                    // Scroll to button
+                    buttons[i].scrollIntoView({block: 'center'});
+                    // Click using JavaScript
+                    buttons[i].click();
+                    // Also dispatch a click event
+                    var evt = new MouseEvent('click', {
+                        view: window,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    buttons[i].dispatchEvent(evt);
+                    return true;
+                }
+            }
+            return false;
+            """
+            result = self.driver.execute_script(js_script)
+            if result:
+                print("   ✅ Clicked Submit using JavaScript (bypassed overlay)")
                 time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 4 failed: {e}")
-        
-        # Method 5: Submit the form directly
-        try:
-            forms = self.driver.find_elements(By.TAG_NAME, "form")
-            for form in forms:
-                methods_tried.append("form.submit()")
-                self.driver.execute_script("arguments[0].submit();", form)
-                print("   ✅ Submitted form")
-                time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 5 failed: {e}")
-        
-        # Method 6: Try clicking on the parent
-        try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            parent = submit_btn.find_element(By.XPATH, "..")
-            if parent.is_displayed():
-                methods_tried.append("Parent click")
-                self.driver.execute_script("arguments[0].click();", parent)
-                print("   ✅ Clicked parent element")
-                time.sleep(2)
-                if self.verify_submit_worked():
-                    return True
-        except Exception as e:
-            print(f"   ⚠️ Method 6 failed: {e}")
-        
-        # Method 7: Click using coordinates
-        try:
-            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            location = submit_btn.location
-            size = submit_btn.size
-            x = location['x'] + size['width']/2
-            y = location['y'] + size['height']/2
-            methods_tried.append("Coordinates click")
-            actions = ActionChains(self.driver)
-            actions.move_by_offset(x, y).click().perform()
-            print(f"   ✅ Clicked at coordinates ({x}, {y})")
-            time.sleep(2)
-            if self.verify_submit_worked():
+                self.screenshot("after_submit_click")
                 return True
         except Exception as e:
-            print(f"   ⚠️ Method 7 failed: {e}")
+            print(f"   ⚠️ JavaScript click failed: {e}")
         
-        print(f"\n   ❌ All methods failed. Methods tried: {', '.join(methods_tried)}")
+        # Alternative: Use ActionChains to click at the button's position
+        try:
+            submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
+            if submit_btn.is_displayed():
+                # Get position
+                location = submit_btn.location
+                size = submit_btn.size
+                x = location['x'] + size['width']/2
+                y = location['y'] + size['height']/2
+                
+                # Click at coordinates using ActionChains
+                actions = ActionChains(self.driver)
+                actions.move_by_offset(x, y).click().perform()
+                print(f"   ✅ Clicked at coordinates ({x}, {y})")
+                time.sleep(2)
+                return True
+        except Exception as e:
+            print(f"   ⚠️ Coordinates click failed: {e}")
+        
+        # Final attempt: Find by CSS selector and click
+        try:
+            submit_btn = self.driver.find_element(By.CSS_SELECTOR, "button.van-button--normal")
+            if submit_btn.is_displayed():
+                self.driver.execute_script("arguments[0].click();", submit_btn)
+                print("   ✅ Clicked Submit by CSS selector")
+                time.sleep(2)
+                return True
+        except:
+            pass
+        
+        print("   ❌ Could not click Submit")
         return False
 
     def verify_submit_worked(self):
@@ -864,14 +728,19 @@ class WithdrawalBot:
             "withdrawal successful",
             "withdrawal submitted",
             "pending approval",
-            "success"
+            "success",
+            "insufficient user balance"  # This actually appears when balance is low
         ]
         
         for indicator in success_indicators:
             if indicator in page_source:
-                print(f"   ✅ Found success indicator: '{indicator}'")
+                print(f"   📊 Status: '{indicator}'")
+                if "insufficient" in indicator:
+                    print("   ⚠️ Insufficient balance - withdrawal failed")
+                    return False
                 return True
         
+        # Check if Submit button is gone
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
             if submit_btn.is_displayed():
@@ -911,7 +780,6 @@ class WithdrawalBot:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(4)
             self.screenshot("withdrawal_page")
-            self.save_html("withdrawal_page")
             print("   ✅ Withdrawal page loaded")
         except Exception as e:
             print(f"   ❌ Could not load withdrawal page: {e}")
@@ -954,8 +822,8 @@ class WithdrawalBot:
         self.screenshot("after_password_entry")
         print("   📸 Screenshot after password entry")
 
-        print("\n   📋 STEP 5: Submit form with debugging")
-        if not self.click_submit_with_debug():
+        print("\n   📋 STEP 5: Click Submit (bypassing overlay)")
+        if not self.click_submit_button():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
             return False
 
