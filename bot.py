@@ -142,7 +142,7 @@ class WithdrawalSafetyManager:
         }
 
 # ============================================
-# WITHDRAWAL BOT - ENTER KEY METHOD
+# WITHDRAWAL BOT - JAVASCRIPT SUBMIT
 # ============================================
 
 class WithdrawalBot:
@@ -201,7 +201,6 @@ class WithdrawalBot:
             pass
 
     def click_element(self, element):
-        """Click element using multiple methods"""
         try:
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", element)
             time.sleep(0.5)
@@ -264,7 +263,6 @@ class WithdrawalBot:
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
 
-            # Find phone field
             phone_field = None
             phone_selectors = [
                 "//input[@placeholder='Please enter your phone number']",
@@ -293,7 +291,6 @@ class WithdrawalBot:
             print(f"   ✅ Phone: {phone}")
             self.screenshot("02_phone_entered")
 
-            # Find password field
             password_field = None
             password_selectors = [
                 "//input[@placeholder='Please enter login password']",
@@ -321,7 +318,6 @@ class WithdrawalBot:
             print("   ✅ Password entered")
             self.screenshot("03_password_entered")
 
-            # Find login button
             login_btn = self.find_login_button()
             if login_btn:
                 self.click_element(login_btn)
@@ -393,11 +389,10 @@ class WithdrawalBot:
         return None
 
     # ============================================
-    # WITHDRAWAL - ENTER KEY METHOD
+    # WITHDRAWAL - JAVASCRIPT SUBMIT
     # ============================================
 
     def click_withdrawal_method(self):
-        """Click the 'Withdrawal method' field"""
         print("   🔘 Clicking 'Withdrawal method'...")
         
         try:
@@ -426,7 +421,6 @@ class WithdrawalBot:
         return False
 
     def select_opay(self):
-        """Select OPAY from dropdown"""
         print("   🔘 Selecting OPAY...")
         
         time.sleep(1)
@@ -457,7 +451,6 @@ class WithdrawalBot:
         return False
 
     def click_amount(self, amount):
-        """Click withdrawal amount button"""
         print(f"   💰 Clicking amount: {amount}")
         
         try:
@@ -485,21 +478,18 @@ class WithdrawalBot:
         return False
 
     def enter_fund_password(self, password):
-        """Enter fund password and keep reference to field for Enter key"""
         print(f"   🔑 Entering fund password: {password}")
         
         time.sleep(1)
         
         fund_field = None
         
-        # Try by placeholder
         try:
             fund_field = self.driver.find_element(By.XPATH, "//input[@placeholder='Please input fund password']")
             print("   ✅ Found fund password field by placeholder")
         except:
             pass
         
-        # Try by type password
         if not fund_field:
             try:
                 password_fields = self.driver.find_elements(By.XPATH, "//input[@type='password']")
@@ -509,7 +499,6 @@ class WithdrawalBot:
             except:
                 pass
         
-        # Try by contains "fund" in placeholder
         if not fund_field:
             try:
                 fund_field = self.driver.find_element(By.XPATH, "//input[contains(@placeholder, 'fund') or contains(@placeholder, 'Fund')]")
@@ -522,7 +511,6 @@ class WithdrawalBot:
             self.screenshot("fund_password_field_not_found")
             return None
         
-        # Set value using JavaScript
         try:
             self.driver.execute_script("""
                 arguments[0].scrollIntoView({block: 'center'});
@@ -547,40 +535,97 @@ class WithdrawalBot:
             print(f"   ❌ Error setting fund password: {e}")
             return None
 
-    def submit_with_enter_key(self, fund_field):
-        """Submit the form using Enter key on the fund password field"""
-        print("   📤 Pressing Enter on fund password field...")
-        
-        if not fund_field:
-            print("   ❌ No fund password field provided")
-            return False
+    def submit_with_javascript(self):
+        """Submit the form using pure JavaScript - finds the form and submits it"""
+        print("   📤 Submitting form with JavaScript...")
         
         try:
-            # Scroll to field
-            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", fund_field)
-            time.sleep(0.5)
-            
-            # Click to focus
-            fund_field.click()
-            time.sleep(0.5)
-            
-            # Press Enter key
-            fund_field.send_keys(Keys.ENTER)
-            print("   ✅ Pressed Enter key")
-            time.sleep(2)
-            
-            # Check if Submit button disappeared or dialog appeared
-            return self.verify_submit_worked()
-            
+            # Method 1: Find the form and submit it
+            js_script = """
+            // Find the form
+            var forms = document.querySelectorAll('form');
+            for (var i = 0; i < forms.length; i++) {
+                // Check if this form contains the fund password field
+                var inputs = forms[i].querySelectorAll('input[type="password"]');
+                if (inputs.length > 0) {
+                    // This is the withdrawal form
+                    forms[i].submit();
+                    return true;
+                }
+            }
+            return false;
+            """
+            result = self.driver.execute_script(js_script)
+            if result:
+                print("   ✅ Form submitted via JavaScript")
+                time.sleep(2)
+                return self.verify_submit_worked()
         except Exception as e:
-            print(f"   ❌ Enter key failed: {e}")
-            return False
+            print(f"   ⚠️ Form submission failed: {e}")
+        
+        # Method 2: Find and click the Submit button using JavaScript with events
+        try:
+            js_script = """
+            var buttons = document.querySelectorAll('button');
+            for (var i = 0; i < buttons.length; i++) {
+                var text = buttons[i].textContent.trim();
+                if (text === 'Submit' || text.toLowerCase() === 'submit') {
+                    // Trigger click with events
+                    var evt = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    });
+                    buttons[i].dispatchEvent(evt);
+                    return true;
+                }
+            }
+            return false;
+            """
+            result = self.driver.execute_script(js_script)
+            if result:
+                print("   ✅ Submit button clicked via JavaScript events")
+                time.sleep(2)
+                return self.verify_submit_worked()
+        except Exception as e:
+            print(f"   ⚠️ JavaScript click failed: {e}")
+        
+        # Method 3: Press Enter with JavaScript
+        try:
+            js_script = """
+            var inputs = document.querySelectorAll('input[type="password"]');
+            for (var i = 0; i < inputs.length; i++) {
+                if (inputs[i].offsetParent !== null) {
+                    inputs[i].focus();
+                    var evt = new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true
+                    });
+                    inputs[i].dispatchEvent(evt);
+                    return true;
+                }
+            }
+            return false;
+            """
+            result = self.driver.execute_script(js_script)
+            if result:
+                print("   ✅ Enter key triggered via JavaScript")
+                time.sleep(2)
+                return self.verify_submit_worked()
+        except Exception as e:
+            print(f"   ⚠️ JavaScript Enter key failed: {e}")
+        
+        print("   ❌ All JavaScript submission methods failed")
+        return False
 
     def verify_submit_worked(self):
         """Verify that the submit worked"""
         time.sleep(1)
         
-        # Check if the confirmation dialog appeared
+        # Check if confirmation dialog appeared
         try:
             dialog = self.driver.find_element(By.XPATH, "//*[contains(text(), 'Confirm') or contains(text(), 'Cancel')]")
             if dialog.is_displayed():
@@ -589,27 +634,19 @@ class WithdrawalBot:
         except:
             pass
         
-        # Check if the Submit button disappeared
+        # Check if Submit button disappeared
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if not submit_btn.is_displayed():
-                print("   ✅ Submit button disappeared!")
-                return True
+            if submit_btn.is_displayed():
+                print("   ❌ Submit button still visible")
+                return False
         except:
-            print("   ✅ Submit button not found!")
+            print("   ✅ Submit button disappeared!")
             return True
         
-        # Check if page changed
-        current_url = self.driver.current_url
-        if "withdraw" not in current_url:
-            print(f"   ✅ Page changed to: {current_url}")
-            return True
-        
-        print("   ❌ Submit did not work - button still visible")
         return False
 
     def handle_confirmation_dialog(self):
-        """Handle the confirmation dialog"""
         print("   🔘 Handling confirmation dialog...")
         
         time.sleep(2)
@@ -665,7 +702,6 @@ class WithdrawalBot:
         return False
 
     def verify_withdrawal_complete(self):
-        """Verify withdrawal completed"""
         time.sleep(2)
         
         page_source = self.driver.page_source.lower()
@@ -681,7 +717,6 @@ class WithdrawalBot:
                 print(f"   ✅ Found success indicator: '{indicator}'")
                 return True
         
-        # Check if Submit button is gone
         try:
             submit_btn = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
             if submit_btn.is_displayed():
@@ -717,7 +752,6 @@ class WithdrawalBot:
         print(f"💸 Processing withdrawal for {phone}")
         print(f"{'='*50}")
         
-        # Navigate to withdrawal page
         try:
             self.driver.get("https://nnnrc.com/#/user/withdraw")
             time.sleep(4)
@@ -729,38 +763,32 @@ class WithdrawalBot:
 
         withdrawal_amount = 1800
         
-        # Safety check
         safety_check = self.safety.can_withdraw(withdrawal_amount, phone)
         if not safety_check["allowed"]:
             print(f"   ⚠️ Blocked: {safety_check['reason']}")
             self.safety.log_withdrawal(phone, withdrawal_amount, "blocked", safety_check['reason'])
             return False
         
-        # Confirm
         if not self.confirm_withdrawal(phone, withdrawal_amount, bank_name):
             print("   ❌ Cancelled")
             self.safety.log_withdrawal(phone, withdrawal_amount, "cancelled", "User cancelled")
             return False
 
-        # STEP 1: Click withdrawal method
         print("\n   📋 STEP 1: Select withdrawal method")
         if not self.click_withdrawal_method():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not click method")
             return False
         
-        # STEP 2: Select OPAY
         print("\n   📋 STEP 2: Select OPAY")
         if not self.select_opay():
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select OPAY")
             return False
 
-        # STEP 3: Click amount
         print("\n   📋 STEP 3: Select amount")
         if not self.click_amount(withdrawal_amount):
             self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Could not select amount")
             return False
 
-        # STEP 4: Enter fund password and get field reference
         print("\n   📋 STEP 4: Enter fund password")
         fund_field = self.enter_fund_password(fund_password)
         if not fund_field:
@@ -770,27 +798,20 @@ class WithdrawalBot:
         self.screenshot("after_password_entry")
         print("   📸 Screenshot after password entry")
 
-        # STEP 5: Submit using Enter key
-        print("\n   📋 STEP 5: Submit form")
-        if not self.submit_with_enter_key(fund_field):
-            # Try clicking Submit as fallback
-            print("   🔄 Enter key failed, trying Submit button click...")
-            if not self.click_submit_button_fallback():
-                self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
-                return False
+        print("\n   📋 STEP 5: Submit form using JavaScript")
+        if not self.submit_with_javascript():
+            self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "Submit failed")
+            return False
 
-        # STEP 6: Handle confirmation dialog
         print("\n   📋 STEP 6: Handle confirmation")
         if not self.handle_confirmation_dialog():
             print("   ⚠️ No confirmation dialog")
-            # Check if withdrawal actually completed
             if self.verify_withdrawal_complete():
                 print("   ✅ Withdrawal completed despite no dialog")
             else:
                 self.safety.log_withdrawal(phone, withdrawal_amount, "failed", "No confirmation dialog")
                 return False
 
-        # STEP 7: Verify completion
         print("\n   📋 STEP 7: Verify withdrawal")
         if self.verify_withdrawal_complete():
             print("   ✅ Withdrawal verified!")
@@ -805,26 +826,6 @@ class WithdrawalBot:
         time.sleep(3)
         self.screenshot("withdrawal_complete")
         return True
-
-    def click_submit_button_fallback(self):
-        """Fallback method to click Submit button"""
-        print("   📤 Clicking Submit (fallback)...")
-        
-        time.sleep(1)
-        
-        try:
-            submit_button = self.driver.find_element(By.XPATH, "//button[normalize-space()='Submit']")
-            if submit_button.is_displayed():
-                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", submit_button)
-                time.sleep(0.5)
-                self.driver.execute_script("arguments[0].click();", submit_button)
-                print("   ✅ Clicked Submit")
-                time.sleep(2)
-                return self.verify_submit_worked()
-        except:
-            pass
-        
-        return False
 
     # ============================================
     # RUN
